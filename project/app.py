@@ -65,11 +65,6 @@ def user_dashboard():
         return render_template("user_index.html")
     return redirect(url_for("login_page"))
 
-@app.route("/biologo")
-def biologo_dashboard():
-    if "user_role" in session and session["user_role"] == 2:
-        return "Bienvenido al panel de biólogo"
-    return redirect(url_for("login_page"))
 
 @app.route("/moderador")
 def moderator_dashboard():
@@ -236,6 +231,60 @@ def reportar():
             cur.execute("SELECT id_tipo_reporte, nombre_tipo_reporte FROM tipos_reportes")
             tipos_reportes = cur.fetchall()
         return render_template("page-contact-us.html", tipos_reporte=tipos_reportes)
+
+@app.route("/biologo")
+def biologo_dashboard():
+    if "user_role" in session and session["user_role"] == 2:
+        db = get_db()
+        with db.cursor() as cur:
+            cur.execute("""
+                SELECT r.id_reporte, tr.nombre_tipo_reporte, r.descripcion, r.fecha_reporte, r.foto_url
+                FROM reportes r
+                JOIN tipos_reportes tr ON r.id_tipo_reporte = tr.id_tipo_reporte
+            """)
+            reportes = cur.fetchall()
+        return render_template("biologo_dashboard.html", reportes=reportes)
+    return redirect(url_for("login_page"))
+
+
+@app.route("/editar_reporte/<int:id_reporte>", methods=["GET", "POST"])
+def editar_reporte(id_reporte):
+    if "user_role" not in session or session["user_role"] != 2:
+        return redirect(url_for("login_page"))
+
+    id_usuario = session["user_id"]
+    db = get_db()
+
+    if request.method == "POST":
+        descripcion = request.form.get("descripcion")
+        foto_url = request.form.get("foto_url")
+        with db.cursor() as cur:
+            # Asegurar que el reporte le pertenece
+            cur.execute("SELECT id_usuario FROM reportes WHERE id_reporte = %s", (id_reporte,))
+            reporte = cur.fetchone()
+            if not reporte or reporte[0] != id_usuario:
+                return "No autorizado", 403
+
+            cur.execute("""
+                UPDATE reportes
+                SET descripcion = %s, foto_url = %s
+                WHERE id_reporte = %s
+            """, (descripcion, foto_url, id_reporte))
+            db.commit()
+        return redirect(url_for("biologo_dashboard"))
+
+    else:
+        with db.cursor() as cur:
+            cur.execute("""
+                SELECT descripcion, foto_url
+                FROM reportes
+                WHERE id_reporte = %s AND id_usuario = %s
+            """, (id_reporte, id_usuario))
+            reporte = cur.fetchone()
+            if not reporte:
+                return "Reporte no encontrado o no autorizado", 404
+        return render_template("editar_reporte.html", reporte=reporte, id_reporte=id_reporte)
+
 
 
 @app.teardown_appcontext

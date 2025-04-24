@@ -1,0 +1,19 @@
+{% extends 'layouts/base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2>Editar Reporte</h2>
+    <form method="POST">
+        <div class="form-group mb-3">
+            <label for="descripcion">Descripción</label>
+            <textarea class="form-control" id="descripcion" name="descripcion" required>{{ reporte[0] }}</textarea>
+        </div>
+        <div class="form-group mb-3">
+            <label for="foto_url">URL de la Foto</label>
+            <input type="text" class="form-control" id="foto_url" name="foto_url" value="{{ reporte[1] }}">
+        </div>
+        <button type="submit" class="btn btn-success">Guardar Cambios</button>
+        <a href="{{ url_for('biologo_dashboard') }}" class="btn btn-secondary">Cancelar</a>
+    </form>
+</div>
+{% endblock %}

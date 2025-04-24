@@ -5,6 +5,7 @@ from controllers.usuarios import usuarios_bp
 from db import get_db
 import re
 from authentication import blueprint as authentication_blueprint
+import random
 
 app = Flask(__name__)
 app.secret_key = 'clave_secreta_segura'  # Necesario para manejar sesiones
@@ -27,7 +28,7 @@ def login_page():
             # Obtener el usuario con su hash de contraseña más reciente
             cur.execute("""
                 SELECT u.id_usuario, u.id_rol, h.contrasena_hash
-                FROM Usuarios u
+                FROM usuarios u
                 JOIN Historial_contrasenas h ON u.id_usuario = h.id_usuario
                 WHERE u.correo = %s
                 ORDER BY h.fecha_registro DESC
@@ -99,7 +100,7 @@ def check_email():
     email = request.args.get("email")
     db = get_db()
     with db.cursor() as cur:
-        cur.execute("SELECT 1 FROM Usuarios WHERE correo = %s", (email,))
+        cur.execute("SELECT 1 FROM usuarios WHERE correo = %s", (email,))
         exists = cur.fetchone() is not None
     return jsonify({"exists": exists})
 
@@ -108,7 +109,7 @@ def check_username():
     username = request.args.get("username")
     db = get_db()
     with db.cursor() as cur:
-        cur.execute("SELECT 1 FROM Usuarios WHERE nombre = %s", (username,))
+        cur.execute("SELECT 1 FROM usuarios WHERE nombre = %s", (username,))
         exists = cur.fetchone() is not None
     return jsonify({"exists": exists})
 
@@ -132,18 +133,18 @@ def register():
         else:
             db = get_db()
             with db.cursor() as cur:
-                cur.execute("SELECT 1 FROM Usuarios WHERE correo = %s", (email,))
+                cur.execute("SELECT 1 FROM usuarios WHERE correo = %s", (email,))
                 if cur.fetchone():
                     msg = "El correo ya está registrado"
                 else:
-                    cur.execute("SELECT 1 FROM Usuarios WHERE nombre = %s", (username,))
+                    cur.execute("SELECT 1 FROM usuarios WHERE nombre = %s", (username,))
                     if cur.fetchone():
                         msg = "El nombre de usuario ya está en uso"
                     else:
                         hashed_password = generate_password_hash(password)
 
                         cur.execute("""
-                            INSERT INTO Usuarios (nombre, apellido1, correo, id_rol)
+                            INSERT INTO usuarios (nombre, apellido1, correo, id_rol)
                             VALUES (%s, %s, %s, %s)
                             RETURNING id_usuario
                         """, (username, lastname, email, role))
@@ -201,30 +202,41 @@ def crear_pqrs():
 
 @app.route("/user/reportar", methods=["GET", "POST"])
 def reportar():
+    db = get_db()
     if request.method == "POST":
         id_usuario = session.get("user_id")
         id_tipo_reporte = request.form.get("id_tipo_reporte")
         descripcion = request.form.get("descripcion")
         foto_url = request.form.get("foto_url")
-        id_alerta = request.form.get("id_alerta")
+        id_alerta = random.randint(1000, 9999)
+        direccion = request.form.get("direccion")
 
         if not all([id_usuario, id_tipo_reporte, descripcion]):
-            return render_template("page-contact-us.html", msg="Todos los campos obligatorios deben ser completados")
+            # Obtener tipos de reporte para el render
+            with db.cursor() as cur:
+                cur.execute("SELECT id_tipo_reportes, nombre_tipo_reporte FROM tipos_reportes")
+                tipos_reporte = cur.fetchall()
+            return render_template("page-contact-us.html", msg="Todos los campos obligatorios deben ser completados", tipos_reporte=tipos_reporte)
 
-        db = get_db()
         with db.cursor() as cur:
-            cur.execute(
-                """
-                INSERT INTO Reportes (id_usuario, id_tipo_reporte, descripcion, fecha_reporte, foto_url, id_alerta)
-                VALUES (%s, %s, %s, NOW(), %s, %s)
-                """,
-                (id_usuario, id_tipo_reporte, descripcion, foto_url, id_alerta)
-            )
+            cur.execute("""
+                INSERT INTO Reportes (id_usuario, id_tipo_reporte, descripcion, fecha_reporte, foto_url, id_alerta, direccion)
+                VALUES (%s, %s, %s, NOW(), %s, %s, %s)
+            """, (id_usuario, id_tipo_reporte, descripcion, foto_url, id_alerta, direccion))
             db.commit()
 
-        return render_template("page-contact-us.html", msg="Reporte enviado con éxito")
+        # Recargar tipos para mostrar en pantalla si se desea
+        with db.cursor() as cur:
+            cur.execute("SELECT id_tipo_reporte, nombre_tipo_reporte FROM tipos_reportes")
+            tipos_reportes = cur.fetchall()
+        return render_template("page-contact-us.html", msg="Reporte enviado con éxito", tipos_reportes=tipos_reportes)
 
-    return render_template("page-contact-us.html")
+    else:
+        with db.cursor() as cur:
+            cur.execute("SELECT id_tipo_reporte, nombre_tipo_reporte FROM tipos_reportes")
+            tipos_reportes = cur.fetchall()
+        return render_template("page-contact-us.html", tipos_reporte=tipos_reportes)
+
 
 @app.teardown_appcontext
 def teardown(exception):

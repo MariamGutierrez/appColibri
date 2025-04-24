@@ -11,12 +11,14 @@
     <ul>
         <li><a href="/usuarios" target="_blank">/usuarios</a> - Obtener todos los usuarios (GET)</li>
         <li><a href="/pqrs" target="_blank">/pqrs</a> - Obtener todas las PQRS (GET)</li>
+        <li><a href="/login" target="_blank">/login</a> - Login (GET)</li>
+        <li><a href="/register" target="_blank">/re</a> - Login (GET)</li>
         <li><code>/pqrs</code> - Crear una nueva PQRS (POST)</li>
     </ul>
 
     <h2>Ejemplo de uso:</h2>
     <pre>
-(esto es para hacer lo que haces en postman en la terminal de linux, pero si no solo ponlo normal en el postman)
+{# (esto es para hacer lo que haces en postman en la terminal de linux, pero si no solo ponlo normal en el postman) #}
 curl -X GET http://localhost:5000/usuarios
 curl -X GET http://localhost:5000/pqrs
 curl -X POST http://localhost:5000/pqrs -H "Content-Type: application/json" -d '{"tipo": "queja", "descripcion": "Problema con el servicio", "estado": "pendiente", "usuario_id": 1}'

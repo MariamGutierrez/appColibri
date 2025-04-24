@@ -1,0 +1,102 @@
+{% extends 'layouts/base-fullscreen.html' %}
+
+  {% block title %}Iniciar Sesión {% endblock title %}
+
+  {% block content %}
+    <section>
+      <div class="page-header section-height-100">
+        <div class="container">
+          <div class="row">
+            <div class="col-xl-4 col-lg-5 col-md-7 d-flex flex-column mx-lg-0 mx-auto">
+              <div class="card card-plain">
+                <div class="card-header pb-0 text-left">
+                  <h4 class="font-weight-bolder">Iniciar Sesión</h4>
+                  <p class="mb-0">
+                    {% if msg %}
+                        {{ msg | safe }}
+                    {% else %}
+                    Introduce tus datos de acceso
+                    {% endif %}
+                  </p>
+                </div>
+                <div class="card-body">
+                  <form method="post" action="/login" role="form">
+                    <div class="mb-3">
+                      <label for="correo">Correo electrónico</label>
+                      <input type="text" id="correo" name="correo" class="form-control form-control-lg" placeholder="Correo" required>
+                    </div>
+                    <div class="mb-3">
+                      <label for="password">Contraseña</label>
+                      <input type="password" id="password" name="password" class="form-control form-control-lg" placeholder="Contraseña" required>
+                    </div>
+                    <div class="text-center">
+                      <button type="submit" name="login" class="btn btn-lg bg-gradient-primary btn-lg w-100 mt-4 mb-0">Continuar</button>
+                    </div>
+                  </form>
+                </div>
+                <div class="card-footer text-center pt-0 px-lg-2 px-1">
+                  <p class="mb-4 text-sm mx-auto">
+                    ¿No tienes una cuenta?
+                    <a href="/register" class="text-primary text-gradient font-weight-bold">Regístrate</a>
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div class="col-6 d-lg-flex d-none h-100 my-auto pe-0 position-absolute top-0 end-0 text-center justify-content-center flex-column">
+              <div class="position-relative bg-gradient-primary h-100 m-3 px-7 border-radius-lg d-flex flex-column justify-content-center">
+                <img src="/static/assets/img/shapes/pattern-lines.svg" alt="pattern-lines" class="position-absolute opacity-4 start-0">
+                <div class="position-relative">
+                  <img class="max-width-500 w-100 position-relative z-index-2" src="/static/assets/img/illustrations/chat.png">
+                </div>
+                <h4 class="mt-5 text-white font-weight-bolder">
+                  Colibrí
+                </h4>
+                <p class="text-white">
+                  &hearts; <a target="_blank" class="text-white">Por una Colombia que escucha a la naturaleza</a> &hearts; 
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  {% endblock content %}
+
+  <!-- Specific JS goes HERE --> 
+  {% block javascripts %}
+    <script src="/static/assets/js/soft-design-system.min.js?v=1.0.1" type="text/javascript"></script>
+    <script>
+      const correoInput = document.getElementById("correo");
+      const passwordInput = document.getElementById("password");
+      const form = document.querySelector("form");
+      const errorMessage = document.createElement("small");
+      errorMessage.id = "errorMessage";
+      errorMessage.className = "form-text text-danger mt-1";
+      form.insertBefore(errorMessage, form.firstChild);
+
+      form.addEventListener("submit", function (event) {
+        if (!correoInput.value || !passwordInput.value) {
+          event.preventDefault();
+          errorMessage.textContent = "Introduce tus datos de acceso";
+        } else {
+          errorMessage.textContent = "";
+        }
+      });
+
+      correoInput.addEventListener("input", function () {
+        if (correoInput.value && passwordInput.value) {
+          errorMessage.textContent = "";
+        } else if (!correoInput.value || !passwordInput.value) {
+          errorMessage.textContent = "Introduce tus datos de acceso";
+        }
+      });
+
+      passwordInput.addEventListener("input", function () {
+        if (correoInput.value && passwordInput.value) {
+          errorMessage.textContent = "";
+        } else if (!correoInput.value || !passwordInput.value) {
+          errorMessage.textContent = "Introduce tus datos de acceso";
+        }
+      });
+    </script>
+  {% endblock javascripts %}

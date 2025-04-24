@@ -1,10 +1,167 @@
-from flask import Flask, jsonify, request, render_template
+from flask import Flask, jsonify, request, render_template, redirect, url_for, session
 from db import get_db, close_db
+from werkzeug.security import generate_password_hash, check_password_hash
+from controllers.usuarios import usuarios_bp
+from db import get_db
+import re
+from authentication import blueprint as authentication_blueprint
 
 app = Flask(__name__)
+app.secret_key = 'clave_secreta_segura'  # Necesario para manejar sesiones
+
+# Register the authentication blueprint
+app.register_blueprint(authentication_blueprint)
+
 @app.route("/")
 def index():
     return render_template("index.html")
+
+@app.route("/login", methods=["GET", "POST"])
+def login_page():
+    if request.method == "POST":
+        correo = request.form.get("correo")
+        password = request.form.get("password")
+
+        db = get_db()
+        with db.cursor() as cur:
+            # Obtener el usuario con su hash de contraseña más reciente
+            cur.execute("""
+                SELECT u.id_usuario, u.id_rol, h.contrasena_hash
+                FROM Usuarios u
+                JOIN Historial_contrasenas h ON u.id_usuario = h.id_usuario
+                WHERE u.correo = %s
+                ORDER BY h.fecha_registro DESC
+                LIMIT 1
+            """, (correo,))
+            user = cur.fetchone()
+
+        if user and check_password_hash(user[2], password):
+            session["user_id"] = user[0]
+            session["user_role"] = user[1]
+
+            role = user[1]
+            # Redirección basada en rol (misma lógica del registro)
+            if role == 1:
+                return redirect(url_for("user_dashboard"))
+            elif role == 2:
+                return redirect(url_for("biologo_dashboard"))
+            elif role == 3:
+                return redirect(url_for("moderator_dashboard"))
+            elif role == 4:
+                return redirect(url_for("ong_dashboard"))
+            elif role == 5:
+                return redirect(url_for("admin_dashboard"))
+            else:
+                return redirect(url_for("index"))
+
+        return render_template("login.html", msg="Credenciales incorrectas")
+
+    return render_template("login.html")
+
+@app.route("/user")
+def user_dashboard():
+    if "user_role" in session and session["user_role"] == 1:
+        return render_template("user_index.html")
+    return redirect(url_for("login_page"))
+
+@app.route("/biologo")
+def biologo_dashboard():
+    if "user_role" in session and session["user_role"] == 2:
+        return "Bienvenido al panel de biólogo"
+    return redirect(url_for("login_page"))
+
+@app.route("/moderador")
+def moderator_dashboard():
+    if "user_role" in session and session["user_role"] == 3:
+        return "Bienvenido al panel de moderador"
+    return redirect(url_for("login_page"))
+
+@app.route("/ong")
+def ong_dashboard():
+    if "user_role" in session and session["user_role"] == 4:
+        return "Bienvenido al panel de ONG"
+    return redirect(url_for("login_page"))
+
+@app.route("/admin")
+def admin_dashboard():
+    if "user_role" in session and session["user_role"] == 5:
+        return "Bienvenido al panel de superusuario"
+    return redirect(url_for("login_page"))
+
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login_page'))
+
+@app.route("/check_email")
+def check_email():
+    email = request.args.get("email")
+    db = get_db()
+    with db.cursor() as cur:
+        cur.execute("SELECT 1 FROM Usuarios WHERE correo = %s", (email,))
+        exists = cur.fetchone() is not None
+    return jsonify({"exists": exists})
+
+@app.route("/check_username")
+def check_username():
+    username = request.args.get("username")
+    db = get_db()
+    with db.cursor() as cur:
+        cur.execute("SELECT 1 FROM Usuarios WHERE nombre = %s", (username,))
+        exists = cur.fetchone() is not None
+    return jsonify({"exists": exists})
+
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if request.method == "POST":
+        msg = None  # Inicializar el mensaje como None
+        username = request.form.get("username")
+        lastname = request.form.get("lastname")
+        email = request.form.get("email")
+        role = request.form.get("role")
+        password = request.form.get("password")
+        confirm_password = request.form.get("confirm_password")
+
+        if not all([username, lastname, email, role, password, confirm_password]):
+            msg = "Todos los campos son obligatorios"
+        elif password != confirm_password:
+            msg = "Las contraseñas no coinciden"
+        elif len(password) < 8 or not re.search(r"[A-Z]", password) or not re.search(r"[a-z]", password) or not re.search(r"\d", password) or not re.search(r"[\W_]", password):
+            msg = "La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula, un número y un símbolo."
+        else:
+            db = get_db()
+            with db.cursor() as cur:
+                cur.execute("SELECT 1 FROM Usuarios WHERE correo = %s", (email,))
+                if cur.fetchone():
+                    msg = "El correo ya está registrado"
+                else:
+                    cur.execute("SELECT 1 FROM Usuarios WHERE nombre = %s", (username,))
+                    if cur.fetchone():
+                        msg = "El nombre de usuario ya está en uso"
+                    else:
+                        hashed_password = generate_password_hash(password)
+
+                        cur.execute("""
+                            INSERT INTO Usuarios (nombre, apellido1, correo, id_rol)
+                            VALUES (%s, %s, %s, %s)
+                            RETURNING id_usuario
+                        """, (username, lastname, email, role))
+                        user_id = cur.fetchone()[0]
+
+                        cur.execute("""
+                            INSERT INTO Historial_contrasenas (id_usuario, contrasena_hash)
+                            VALUES (%s, %s)
+                        """, (user_id, hashed_password))
+                        db.commit()
+
+                        session["user_id"] = user_id
+                        session["user_role"] = int(role)
+                        return redirect(url_for("ong_dashboard"))
+
+        return render_template("register.html", msg=msg)
+
+    return render_template("register.html")
 
 #### METODOS GET ####
 ######tienes que poner los que necesites ahi segun lo que vayas haciendo######
@@ -41,6 +198,33 @@ def crear_pqrs():
         """, (tipo, descripcion, estado, usuario_id))
         db.commit()
     return jsonify({"mensaje": "PQRS creada con éxito"}), 201
+
+@app.route("/user/reportar", methods=["GET", "POST"])
+def reportar():
+    if request.method == "POST":
+        id_usuario = session.get("user_id")
+        id_tipo_reporte = request.form.get("id_tipo_reporte")
+        descripcion = request.form.get("descripcion")
+        foto_url = request.form.get("foto_url")
+        id_alerta = request.form.get("id_alerta")
+
+        if not all([id_usuario, id_tipo_reporte, descripcion]):
+            return render_template("page-contact-us.html", msg="Todos los campos obligatorios deben ser completados")
+
+        db = get_db()
+        with db.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO Reportes (id_usuario, id_tipo_reporte, descripcion, fecha_reporte, foto_url, id_alerta)
+                VALUES (%s, %s, %s, NOW(), %s, %s)
+                """,
+                (id_usuario, id_tipo_reporte, descripcion, foto_url, id_alerta)
+            )
+            db.commit()
+
+        return render_template("page-contact-us.html", msg="Reporte enviado con éxito")
+
+    return render_template("page-contact-us.html")
 
 @app.teardown_appcontext
 def teardown(exception):

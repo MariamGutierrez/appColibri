@@ -1,0 +1,72 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %} Avistamientos De Especies en Peligro de Estinción {% endblock title %}
+
+<!-- Specific CSS goes HERE -->
+{% block stylesheets %}{% endblock stylesheets %}
+
+{% block body_class %} contact-us {% endblock body_class %}
+
+{% block content %}
+
+  {% include "includes/navigation-light.html" %}
+
+  <header>
+    <div class="page-header section-height-85">
+      <div>
+        <img class="position-absolute fixed-top ms-auto w-50 h-100 z-index-0 d-none d-sm-none d-md-block border-radius-section border-top-end-radius-0 border-top-start-radius-0 border-bottom-end-radius-0" src="/static/assets/img/curved-images/curved8.jpg">
+      </div>
+      <div class="container">
+        <div class="row">
+          <div class="col-lg-7 d-flex justify-content-center flex-column">
+            <div class="card d-flex blur justify-content-center p-4 shadow-lg my-sm-0 my-sm-6 mt-8 mb-5">
+              <div class="text-center">
+                <h3 class="text-gradient text-primary">Reportar una Especie en Peligro de Extinción</h3>
+                <p class="mb-0">
+                  ¿Has encontrado un problema o situación que afecta a las especies en peligro de extinción? Por favor, llena el formulario para reportarlo.
+                </p>
+              </div>
+              <form method="POST" action="/user/reportar" id="report-form" autocomplete="off">
+                <div class="card-body pb-2">
+                  <div class="row">
+                    <div class="col-md-6">
+                      <label for="id_tipo_reporte">Tipo de Reporte</label>
+                      <select name="id_tipo_reporte" id="id_tipo_reporte" class="form-control" required>
+                        <!-- Opciones dinámicas cargadas desde la base de datos -->
+                      </select>
+                    </div>
+                    <div class="col-md-6 ps-md-2">
+                      <label for="foto_url">URL de la Foto</label>
+                      <input type="url" name="foto_url" id="foto_url" class="form-control" placeholder="https://example.com/foto.jpg">
+                    </div>
+                  </div>
+                  <div class="form-group mt-4">
+                    <label for="descripcion">Descripción</label>
+                    <textarea name="descripcion" id="descripcion" class="form-control" rows="6" placeholder="Describe el problema en al menos 10 caracteres" required></textarea>
+                  </div>
+                  <div class="form-group mt-4">
+                    <label for="id_alerta">ID de Alerta (opcional)</label>
+                    <input type="number" name="id_alerta" id="id_alerta" class="form-control" placeholder="ID de alerta relacionado">
+                  </div>
+                  <div class="row">
+                    <div class="col-md-12 text-center">
+                      <button type="submit" class="btn bg-gradient-primary mt-3 mb-0">Enviar Reporte</button>
+                    </div>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+{% endblock content %}
+
+<!-- Specific JS goes HERE --> 
+{% block javascripts %}
+
+  <script src="/static/assets/js/soft-design-system.min.js?v=1.0.1" type="text/javascript"></script>
+
+{% endblock javascripts %}

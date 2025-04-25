@@ -5,7 +5,7 @@ from urllib.parse import urlparse
 
 def get_db():
     if "db" not in g:
-        db_url = os.getenv("postgresql://postgres:GtsuuqKGwGlhmYFUZlEJWDMyXxPzhUfl@caboose.proxy.rlwy.net:14438/railway")
+        db_url = os.getenv("DATABASE_URL")
         if db_url is None:
             raise RuntimeError("DATABASE_URL no está definida")
 

@@ -1,22 +1,27 @@
-# db.py
+import os
 import psycopg
 from flask import g
-
-# Configurá los datos según tu setup:
-DB_CONFIG = {
-    "dbname": "dottoooo",
-    "user": "dottoooo",
-    "password": "Kuyaminovio123",
-    "host": "localhost",  # o la IP de tu servidor
-    "port": 5432
-}
+from urllib.parse import urlparse
 
 def get_db():
     if "db" not in g:
-        g.db = psycopg.connect(**DB_CONFIG)
+        db_url = os.getenv("DATABASE_URL")
+        if db_url is None:
+            raise RuntimeError("DATABASE_URL no está definida")
+
+        result = urlparse(db_url)
+        g.db = psycopg.connect(
+            dbname=result.path[1:],
+            user=result.username,
+            password=result.password,
+            host=result.hostname,
+            port=result.port,
+            sslmode="require"  # Railway requiere conexión segura
+        )
     return g.db
 
 def close_db(e=None):
     db = g.pop("db", None)
     if db is not None:
         db.close()
+

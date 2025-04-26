@@ -243,9 +243,9 @@ def editar_reporte(id_reporte):
         """, (id_reporte,))
         reporte = cur.fetchone()
 
-    # Obtener tipos de reportes para el selector
-    cur.execute("SELECT id_tipo_reporte, nombre_tipo_reporte FROM tipos_reportes")
-    tipos_reportes = cur.fetchall()
+        # Obtener tipos de reportes para permitir cambiarlo
+        cur.execute("SELECT id_tipo_reporte, nombre_tipo_reporte FROM tipos_reportes")
+        tipos_reportes = cur.fetchall()
 
     if not reporte:
         return "Reporte no encontrado", 404

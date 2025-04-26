@@ -195,43 +195,6 @@ def crear_pqrs():
         db.commit()
     return jsonify({"mensaje": "PQRS creada con éxito"}), 201
 
-@app.route("/user/reportar", methods=["GET", "POST"])
-def reportar():
-    db = get_db()
-    if request.method == "POST":
-        id_usuario = session.get("user_id")
-        id_tipo_reporte = request.form.get("id_tipo_reporte")
-        descripcion = request.form.get("descripcion")
-        foto_url = request.form.get("foto_url")
-        id_alerta = random.randint(1000, 9999)
-        direccion = request.form.get("direccion")
-
-        if not all([id_usuario, id_tipo_reporte, descripcion]):
-            # Obtener tipos de reporte para el render
-            with db.cursor() as cur:
-                cur.execute("SELECT id_tipo_reportes, nombre_tipo_reporte FROM tipos_reportes")
-                tipos_reporte = cur.fetchall()
-            return render_template("page-contact-us.html", msg="Todos los campos obligatorios deben ser completados", tipos_reporte=tipos_reporte)
-
-        with db.cursor() as cur:
-            cur.execute("""
-                INSERT INTO Reportes (id_usuario, id_tipo_reporte, descripcion, fecha_reporte, foto_url, id_alerta, direccion)
-                VALUES (%s, %s, %s, NOW(), %s, %s, %s)
-            """, (id_usuario, id_tipo_reporte, descripcion, foto_url, id_alerta, direccion))
-            db.commit()
-
-        # Recargar tipos para mostrar en pantalla si se desea
-        with db.cursor() as cur:
-            cur.execute("SELECT id_tipo_reporte, nombre_tipo_reporte FROM tipos_reportes")
-            tipos_reportes = cur.fetchall()
-        return render_template("page-contact-us.html", msg="Reporte enviado con éxito", tipos_reportes=tipos_reportes)
-
-    else:
-        with db.cursor() as cur:
-            cur.execute("SELECT id_tipo_reporte, nombre_tipo_reporte FROM tipos_reportes")
-            tipos_reportes = cur.fetchall()
-        return render_template("page-contact-us.html", tipos_reporte=tipos_reportes)
-
 @app.route("/biologo")
 def biologo_dashboard():
     if "user_role" in session and session["user_role"] == 2:
@@ -246,25 +209,17 @@ def biologo_dashboard():
         return render_template("biologo_dashboard.html", reportes=reportes)
     return redirect(url_for("login_page"))
 
-
 @app.route("/editar_reporte/<int:id_reporte>", methods=["GET", "POST"])
 def editar_reporte(id_reporte):
     if "user_role" not in session or session["user_role"] != 2:
         return redirect(url_for("login_page"))
 
-    id_usuario = session["user_id"]
     db = get_db()
 
     if request.method == "POST":
         descripcion = request.form.get("descripcion")
         foto_url = request.form.get("foto_url")
         with db.cursor() as cur:
-            # Asegurar que el reporte le pertenece
-            cur.execute("SELECT id_usuario FROM reportes WHERE id_reporte = %s", (id_reporte,))
-            reporte = cur.fetchone()
-            if not reporte or reporte[0] != id_usuario:
-                return "No autorizado", 403
-
             cur.execute("""
                 UPDATE reportes
                 SET descripcion = %s, foto_url = %s
@@ -273,17 +228,19 @@ def editar_reporte(id_reporte):
             db.commit()
         return redirect(url_for("biologo_dashboard"))
 
-    else:
-        with db.cursor() as cur:
-            cur.execute("""
-                SELECT descripcion, foto_url
-                FROM reportes
-                WHERE id_reporte = %s AND id_usuario = %s
-            """, (id_reporte, id_usuario))
-            reporte = cur.fetchone()
-            if not reporte:
-                return "Reporte no encontrado o no autorizado", 404
-        return render_template("editar_reporte.html", reporte=reporte, id_reporte=id_reporte)
+    # También deberías agregar aquí el GET para cargar el formulario con los datos actuales
+    with db.cursor() as cur:
+        cur.execute("""
+            SELECT descripcion, foto_url
+            FROM reportes
+            WHERE id_reporte = %s
+        """, (id_reporte,))
+        reporte = cur.fetchone()
+
+    if not reporte:
+        return "Reporte no encontrado", 404
+
+    return render_template("editar_reporte.html", reporte=reporte)
 
 
 

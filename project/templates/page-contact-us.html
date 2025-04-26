@@ -23,12 +23,12 @@
           <div class="col-lg-7 d-flex justify-content-center flex-column">
             <div class="card d-flex blur justify-content-center p-4 shadow-lg my-sm-0 my-sm-6 mt-8 mb-5">
               <div class="text-center">
-                <h3 class="text-gradient text-primary">Reportar una Especie en Peligro de Extinción</h3>
+                <h3 class="text-gradient text-primary">Reportar Casos de Maltrato Animal</h3>
                 <p class="mb-0">
                   ¿Has encontrado un problema o situación que afecta a animales en su localidad? Por favor, llena el formulario para reportarlo.
                 </p>
               </div>
-              <form method="POST" action="/user/reportar" id="report-form" autocomplete="off">
+              <form method="POST" action="/user/reportar" id="report-form" autocomplete="off" enctype="multipart/form-data">
                 <div class="card-body pb-2">
                   <div class="row">
                     <div class="col-md-6">
@@ -40,9 +40,9 @@
                       </select>
                     </div>
                     <div class="col-md-6 ps-md-2">
-                      <label for="foto_url">URL de la Foto</label>
-                      <input type="url" name="foto_url" id="foto_url" class="form-control" placeholder="https://example.com/foto.jpg">
-                    </div>
+                      <label for="foto">Foto del Reporte</label>
+                      <input type="file" name="foto" id="foto" class="form-control" accept="image/png, image/jpeg" required>
+                    </div>                    
                   </div>
                   <div class="form-group mt-4">
                     <label for="descripcion">Descripción</label>

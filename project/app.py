@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, render_template, redirect, url_for, session
+from flask import Flask, jsonify, request, render_template, redirect, url_for, session, flash
 from db import get_db, close_db
 from werkzeug.security import generate_password_hash, check_password_hash
 from controllers.usuarios import usuarios_bp
@@ -6,9 +6,21 @@ from db import get_db
 import re
 from authentication import blueprint as authentication_blueprint
 import random
+import os
+from werkzeug.utils import secure_filename
+
+UPLOAD_FOLDER = 'static/uploads/'
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
+
 
 app = Flask(__name__)
 app.secret_key = 'clave_secreta_segura'  # Necesario para manejar sesiones
+
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
 
 # Register the authentication blueprint
 app.register_blueprint(authentication_blueprint)
@@ -197,40 +209,54 @@ def crear_pqrs():
 
 @app.route("/user/reportar", methods=["GET", "POST"])
 def reportar():
-     db = get_db()
-     if request.method == "POST":
-         id_usuario = session.get("user_id")
-         id_tipo_reporte = request.form.get("id_tipo_reporte")
-         descripcion = request.form.get("descripcion")
-         foto_url = request.form.get("foto_url")
-         id_alerta = random.randint(1000, 9999)
-         direccion = request.form.get("direccion")
- 
-         if not all([id_usuario, id_tipo_reporte, descripcion]):
-             # Obtener tipos de reporte para el render
-             with db.cursor() as cur:
-                 cur.execute("SELECT id_tipo_reportes, nombre_tipo_reporte FROM tipos_reportes")
-                 tipos_reporte = cur.fetchall()
-             return render_template("page-contact-us.html", msg="Todos los campos obligatorios deben ser completados", tipos_reporte=tipos_reporte)
- 
-         with db.cursor() as cur:
-             cur.execute("""
-                 INSERT INTO Reportes (id_usuario, id_tipo_reporte, descripcion, fecha_reporte, foto_url, id_alerta, direccion)
-                 VALUES (%s, %s, %s, NOW(), %s, %s, %s)
-             """, (id_usuario, id_tipo_reporte, descripcion, foto_url, id_alerta, direccion))
-             db.commit()
- 
-         # Recargar tipos para mostrar en pantalla si se desea
-         with db.cursor() as cur:
-             cur.execute("SELECT id_tipo_reporte, nombre_tipo_reporte FROM tipos_reportes")
-             tipos_reportes = cur.fetchall()
-         return render_template("page-contact-us.html", msg="Reporte enviado con éxito", tipos_reportes=tipos_reportes)
- 
-     else:
-         with db.cursor() as cur:
-             cur.execute("SELECT id_tipo_reporte, nombre_tipo_reporte FROM tipos_reportes")
-             tipos_reportes = cur.fetchall()
-         return render_template("page-contact-us.html", tipos_reporte=tipos_reportes)
+    db = get_db()
+    
+    if request.method == "POST":
+        id_usuario = session.get("user_id")
+        id_tipo_reporte = request.form.get("id_tipo_reporte")
+        descripcion = request.form.get("descripcion")
+        direccion = request.form.get("direccion")
+        id_alerta = random.randint(1000, 9999)
+
+        # Manejar archivo
+        file = request.files.get('foto')  # ahora recibimos 'foto'
+
+        if not all([id_usuario, id_tipo_reporte, descripcion, direccion, file]):
+            with db.cursor() as cur:
+                cur.execute("SELECT id_tipo_reporte, nombre_tipo_reporte FROM tipos_reportes")
+                tipos_reporte = cur.fetchall()
+            return render_template("page-contact-us.html", msg="Todos los campos obligatorios deben ser completados", tipos_reporte=tipos_reporte)
+
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(filepath)
+            foto_url = f"/{filepath}"  # guardar ruta relativa para usar en templates
+        else:
+            with db.cursor() as cur:
+                cur.execute("SELECT id_tipo_reporte, nombre_tipo_reporte FROM tipos_reportes")
+                tipos_reporte = cur.fetchall()
+            return render_template("page-contact-us.html", msg="Tipo de archivo no permitido. Solo PNG o JPG.", tipos_reporte=tipos_reporte)
+
+        # Insertar reporte en base de datos
+        with db.cursor() as cur:
+            cur.execute("""
+                INSERT INTO Reportes (id_usuario, id_tipo_reporte, descripcion, fecha_reporte, foto_url, id_alerta, direccion)
+                VALUES (%s, %s, %s, NOW(), %s, %s, %s)
+            """, (id_usuario, id_tipo_reporte, descripcion, foto_url, id_alerta, direccion))
+            db.commit()
+
+        with db.cursor() as cur:
+            cur.execute("SELECT id_tipo_reporte, nombre_tipo_reporte FROM tipos_reportes")
+            tipos_reporte = cur.fetchall()
+
+        return render_template("page-contact-us.html", msg="Reporte enviado con éxito", tipos_reporte=tipos_reporte)
+
+    else:
+        with db.cursor() as cur:
+            cur.execute("SELECT id_tipo_reporte, nombre_tipo_reporte FROM tipos_reportes")
+            tipos_reporte = cur.fetchall()
+        return render_template("page-contact-us.html", tipos_reporte=tipos_reporte)
 
 @app.route("/biologo")
 def biologo_dashboard():

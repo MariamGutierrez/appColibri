@@ -207,7 +207,7 @@ def biologo_dashboard():
                     r.descripcion,              -- 2
                     r.fecha_reporte,             -- 3
                     r.foto_url,                  -- 4
-                    u.nombre_usuario,            -- 5
+                    u.nombre,            -- 5
                     r.estado_validacion          -- 6
                 FROM reportes r
                 JOIN tipos_reportes tr ON r.id_tipo_reporte = tr.id_tipo_reporte

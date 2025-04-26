@@ -235,7 +235,7 @@ def editar_reporte(id_reporte):
     # GET - obtener los datos actuales
     with db.cursor() as cur:
         cur.execute("""
-            SELECT r.descripcion, r.foto_url, tr.nombre_tipo_reporte, r.fecha_reporte, r.id_tipo_reporte, u.nombre_usuario
+            SELECT r.descripcion, r.foto_url, tr.nombre_tipo_reporte, r.fecha_reporte, r.id_tipo_reporte, u.nombre
             FROM reportes r
             JOIN tipos_reportes tr ON r.id_tipo_reporte = tr.id_tipo_reporte
             JOIN usuarios u ON r.id_usuario = u.id_usuario

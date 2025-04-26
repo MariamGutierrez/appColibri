@@ -201,13 +201,22 @@ def biologo_dashboard():
         db = get_db()
         with db.cursor() as cur:
             cur.execute("""
-                SELECT r.id_reporte, tr.nombre_tipo_reporte, r.descripcion, r.fecha_reporte, r.foto_url
+                SELECT 
+                    r.id_reporte,               -- 0
+                    tr.nombre_tipo_reporte,     -- 1
+                    r.descripcion,              -- 2
+                    r.fecha_reporte,             -- 3
+                    r.foto_url,                  -- 4
+                    u.nombre_usuario,            -- 5
+                    r.estado_validacion          -- 6
                 FROM reportes r
                 JOIN tipos_reportes tr ON r.id_tipo_reporte = tr.id_tipo_reporte
+                JOIN usuarios u ON r.id_usuario = u.id_usuario
             """)
             reportes = cur.fetchall()
         return render_template("biologo_dashboard.html", reportes=reportes)
     return redirect(url_for("login_page"))
+
 
 @app.route("/editar_reporte/<int:id_reporte>", methods=["GET", "POST"])
 def editar_reporte(id_reporte):

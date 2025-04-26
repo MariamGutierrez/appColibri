@@ -232,10 +232,9 @@ def reportar():
             return render_template("page-contact-us.html", msg="Todos los campos obligatorios deben ser completados", tipos_reporte=tipos_reporte)
 
         if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
             file.save(filepath)
-            foto_url = f"/{filepath}"  # guardar ruta relativa para usar en templates
+            foto_url = '/' + filepath.replace('\\', '/')
         else:
             with db.cursor() as cur:
                 cur.execute("SELECT id_tipo_reporte, nombre_tipo_reporte FROM tipos_reportes")

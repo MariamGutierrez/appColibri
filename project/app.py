@@ -252,6 +252,32 @@ def editar_reporte(id_reporte):
 
     return render_template("editar_reporte.html", reporte=reporte, tipos_reportes=tipos_reportes)
 
+@app.route("/validar_reporte/<int:id_reporte>/<accion>", methods=["POST"])
+def validar_reporte(id_reporte, accion):
+    if "user_role" not in session or session["user_role"] != 2:
+        return redirect(url_for("login_page"))
+
+    db = get_db()
+    nuevo_estado = "pendiente"
+
+    if accion == "aprobar":
+        nuevo_estado = "aprobado"
+    elif accion == "rechazar":
+        nuevo_estado = "rechazado"
+    else:
+        return "Acción no válida", 400
+
+    with db.cursor() as cur:
+        cur.execute("""
+            UPDATE reportes
+            SET estado_validacion = %s
+            WHERE id_reporte = %s
+        """, (nuevo_estado, id_reporte))
+        db.commit()
+
+    return redirect(url_for("biologo_dashboard"))
+
+
 
 
 @app.teardown_appcontext

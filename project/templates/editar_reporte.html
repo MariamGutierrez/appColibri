@@ -28,6 +28,11 @@
             <input type="text" class="form-control" value="{{ reporte[3] }}" disabled>
         </div>
 
+        <div class="form-group mb-3">
+            <label>Usuario que subió el reporte</label>
+            <input type="text" class="form-control" value="{{ reporte[5] }}" disabled>
+        </div>
+
         <button type="submit" class="btn btn-success">Guardar Cambios</button>
         <a href="{{ url_for('biologo_dashboard') }}" class="btn btn-secondary">Cancelar</a>
     </form>

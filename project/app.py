@@ -219,28 +219,37 @@ def editar_reporte(id_reporte):
     if request.method == "POST":
         descripcion = request.form.get("descripcion")
         foto_url = request.form.get("foto_url")
+        id_tipo_reporte = request.form.get("id_tipo_reporte")  # Nuevo campo si quieres permitir cambiarlo también
+
         with db.cursor() as cur:
             cur.execute("""
                 UPDATE reportes
-                SET descripcion = %s, foto_url = %s
+                SET descripcion = %s,
+                    foto_url = %s,
+                    id_tipo_reporte = %s
                 WHERE id_reporte = %s
-            """, (descripcion, foto_url, id_reporte))
+            """, (descripcion, foto_url, id_tipo_reporte, id_reporte))
             db.commit()
         return redirect(url_for("biologo_dashboard"))
 
-    # También deberías agregar aquí el GET para cargar el formulario con los datos actuales
+    # GET - obtener los datos actuales
     with db.cursor() as cur:
         cur.execute("""
-            SELECT descripcion, foto_url
-            FROM reportes
-            WHERE id_reporte = %s
+            SELECT r.descripcion, r.foto_url, tr.nombre_tipo_reporte, r.fecha_reporte, r.id_tipo_reporte
+            FROM reportes r
+            JOIN tipos_reportes tr ON r.id_tipo_reporte = tr.id_tipo_reporte
+            WHERE r.id_reporte = %s
         """, (id_reporte,))
         reporte = cur.fetchone()
+
+        # Obtener tipos de reportes para permitir cambiarlo
+        cur.execute("SELECT id_tipo_reporte, nombre_tipo_reporte FROM tipos_reportes")
+        tipos_reportes = cur.fetchall()
 
     if not reporte:
         return "Reporte no encontrado", 404
 
-    return render_template("editar_reporte.html", reporte=reporte)
+    return render_template("editar_reporte.html", reporte=reporte, tipos_reportes=tipos_reportes)
 
 
 

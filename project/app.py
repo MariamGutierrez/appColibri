@@ -9,7 +9,7 @@ import random
 import os
 from werkzeug.utils import secure_filename
 
-UPLOAD_FOLDER = 'static/uploads/'
+UPLOAD_FOLDER = 'static/uploads'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 
 

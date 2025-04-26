@@ -195,6 +195,43 @@ def crear_pqrs():
         db.commit()
     return jsonify({"mensaje": "PQRS creada con éxito"}), 201
 
+@app.route("/user/reportar", methods=["GET", "POST"])
+def reportar():
+     db = get_db()
+     if request.method == "POST":
+         id_usuario = session.get("user_id")
+         id_tipo_reporte = request.form.get("id_tipo_reporte")
+         descripcion = request.form.get("descripcion")
+         foto_url = request.form.get("foto_url")
+         id_alerta = random.randint(1000, 9999)
+         direccion = request.form.get("direccion")
+ 
+         if not all([id_usuario, id_tipo_reporte, descripcion]):
+             # Obtener tipos de reporte para el render
+             with db.cursor() as cur:
+                 cur.execute("SELECT id_tipo_reportes, nombre_tipo_reporte FROM tipos_reportes")
+                 tipos_reporte = cur.fetchall()
+             return render_template("page-contact-us.html", msg="Todos los campos obligatorios deben ser completados", tipos_reporte=tipos_reporte)
+ 
+         with db.cursor() as cur:
+             cur.execute("""
+                 INSERT INTO Reportes (id_usuario, id_tipo_reporte, descripcion, fecha_reporte, foto_url, id_alerta, direccion)
+                 VALUES (%s, %s, %s, NOW(), %s, %s, %s)
+             """, (id_usuario, id_tipo_reporte, descripcion, foto_url, id_alerta, direccion))
+             db.commit()
+ 
+         # Recargar tipos para mostrar en pantalla si se desea
+         with db.cursor() as cur:
+             cur.execute("SELECT id_tipo_reporte, nombre_tipo_reporte FROM tipos_reportes")
+             tipos_reportes = cur.fetchall()
+         return render_template("page-contact-us.html", msg="Reporte enviado con éxito", tipos_reportes=tipos_reportes)
+ 
+     else:
+         with db.cursor() as cur:
+             cur.execute("SELECT id_tipo_reporte, nombre_tipo_reporte FROM tipos_reportes")
+             tipos_reportes = cur.fetchall()
+         return render_template("page-contact-us.html", tipos_reporte=tipos_reportes)
+
 @app.route("/biologo")
 def biologo_dashboard():
     if "user_role" in session and session["user_role"] == 2:

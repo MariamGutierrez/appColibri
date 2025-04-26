@@ -9,7 +9,7 @@ import random
 import os
 from werkzeug.utils import secure_filename
 
-UPLOAD_FOLDER = 'static/uploads'
+UPLOAD_FOLDER = 'static/uploads/'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 
 
@@ -17,6 +17,10 @@ app = Flask(__name__)
 app.secret_key = 'clave_secreta_segura'  # Necesario para manejar sesiones
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+# Asegurar que la carpeta 'static/uploads' exista
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS

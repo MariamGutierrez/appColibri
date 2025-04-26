@@ -1,5 +1,5 @@
 import os
-import psycopg
+import psycopg2
 from flask import g
 from urllib.parse import urlparse
 
@@ -10,7 +10,7 @@ def get_db():
             raise RuntimeError("DATABASE_URL no está definida")
 
         result = urlparse(db_url)
-        g.db = psycopg.connect(
+        g.db = psycopg2.connect(
             dbname=result.path[1:],
             user=result.username,
             password=result.password,

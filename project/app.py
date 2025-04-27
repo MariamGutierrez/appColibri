@@ -1,3 +1,4 @@
+from importlib.metadata import files
 from flask import Flask, jsonify, request, render_template, redirect, url_for, session, flash
 from db import get_db, close_db
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -224,6 +225,7 @@ def crear_pqrs():
 @app.route("/user/reportar", methods=["GET", "POST"])
 def reportar():
     db = get_db()
+    uploaded_urls = []
     
     if request.method == "POST":
         id_usuario = session.get("user_id")
@@ -233,17 +235,17 @@ def reportar():
         id_alerta = random.randint(1000, 9999)
 
         # Manejar archivo
-        file = request.files.get('foto')  # ahora recibimos 'foto'
+        file = request.files.getlist('foto')  # ahora recibimos 'foto'
 
         if not all([id_usuario, id_tipo_reporte, descripcion, direccion, file]):
             with db.cursor() as cur:
                 cur.execute("SELECT id_tipo_reporte, nombre_tipo_reporte FROM tipos_reportes")
                 tipos_reporte = cur.fetchall()
             return render_template("page-contact-us.html", msg="Todos los campos obligatorios deben ser completados", tipos_reporte=tipos_reporte)
-        if file and allowed_file(file.filename):
-            upload_result = cloudinary.uploader.upload(file)
-            foto_url = upload_result['secure_url']  # URL segura HTTPS de la imagen
-
+        for file in files:
+            if file and allowed_file(file.filename):
+                upload_result = cloudinary.uploader.upload(file)
+                uploaded_urls.append(upload_result['secure_url'])
         else:
             with db.cursor() as cur:
                 cur.execute("SELECT id_tipo_reporte, nombre_tipo_reporte FROM tipos_reportes")

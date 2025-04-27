@@ -8,6 +8,16 @@ from authentication import blueprint as authentication_blueprint
 import random
 import os
 from werkzeug.utils import secure_filename
+import cloudinary
+import cloudinary.uploader
+
+# Configurar Cloudinary
+cloudinary.config( 
+    cloud_name = "dhaneunlu", 
+    api_key = "176747317263595", 
+    api_secret = "6a959CR7AvrMfAL94jyUJ56jKU8", # Click 'View API Keys' above to copy your API secret
+    secure=True
+)
 
 UPLOAD_FOLDER = 'static/uploads/'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
@@ -231,10 +241,8 @@ def reportar():
                 tipos_reporte = cur.fetchall()
             return render_template("page-contact-us.html", msg="Todos los campos obligatorios deben ser completados", tipos_reporte=tipos_reporte)
         if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            file.save(filepath)
-            foto_url = f"/static/uploads/{filename}"  # <<< SOLO esto, NO url_for
+            upload_result = cloudinary.uploader.upload(file)
+            foto_url = upload_result['secure_url']  # URL segura HTTPS de la imagen
 
         else:
             with db.cursor() as cur:

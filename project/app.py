@@ -230,11 +230,12 @@ def reportar():
                 cur.execute("SELECT id_tipo_reporte, nombre_tipo_reporte FROM tipos_reportes")
                 tipos_reporte = cur.fetchall()
             return render_template("page-contact-us.html", msg="Todos los campos obligatorios deben ser completados", tipos_reporte=tipos_reporte)
-
         if file and allowed_file(file.filename):
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
+            filename = secure_filename(file.filename)
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             file.save(filepath)
-            foto_url = '/' + filepath.replace('\\', '/')
+            foto_url = f"/static/uploads/{filename}"  # <<< SOLO esto, NO url_for
+
         else:
             with db.cursor() as cur:
                 cur.execute("SELECT id_tipo_reporte, nombre_tipo_reporte FROM tipos_reportes")

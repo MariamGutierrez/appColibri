@@ -284,8 +284,7 @@ def reportar():
         descripcion = request.form.get("descripcion")
         direccion = request.form.get("direccion")
         id_alerta = random.randint(1000, 9999)
-
-        files = request.files.getlist('foto')  # corregido: variable era 'file', ahora es 'files'
+        files = request.files.getlist('fotos')
 
         if not all([id_usuario, id_tipo_reporte, descripcion, direccion, files]):
             with db.cursor() as cur:
@@ -311,20 +310,24 @@ def reportar():
                     tipos_reporte=tipos_reporte
                 )
 
-        # Insertar reportes con cada imagen subida
-        with db.cursor() as cur:
-            for foto_url in uploaded_urls:
-                cur.execute("""
-                    INSERT INTO Reportes (id_usuario, id_tipo_reporte, descripcion, fecha_reporte, foto_url, id_alerta, direccion)
-                    VALUES (%s, %s, %s, NOW(), %s, %s, %s)
-                """, (id_usuario, id_tipo_reporte, descripcion, foto_url, id_alerta, direccion))
-            db.commit()
+        try:
+            with db.cursor() as cur:
+                for foto_url in uploaded_urls:
+                    cur.execute("""
+                        INSERT INTO reportes (id_usuario, id_tipo_reporte, descripcion, fecha_reporte, foto_url, id_alerta, direccion)
+                        VALUES (%s, %s, %s, NOW(), %s, %s, %s)
+                    """, (id_usuario, id_tipo_reporte, descripcion, foto_url, id_alerta, direccion))
+            db.commit()  # ✅ Aquí sí se guardan los cambios correctamente
+        except Exception as e:
+            db.rollback()
+            return render_template("page-contact-us.html", msg=f"Error al guardar el reporte: {e}")
 
         with db.cursor() as cur:
             cur.execute("SELECT id_tipo_reporte, nombre_tipo_reporte FROM tipos_reportes")
             tipos_reporte = cur.fetchall()
 
         return render_template("page-contact-us.html", msg="Reporte enviado con éxito", tipos_reporte=tipos_reporte)
+
 
     else:
         with db.cursor() as cur:
@@ -387,10 +390,13 @@ def editar_reporte(id_reporte):
                 tr.nombre_tipo_reporte, 
                 r.fecha_reporte, 
                 r.id_tipo_reporte, 
-                e.nombre
+                c.nombre,
+                ta.nombre_tipo_alerta
             FROM reportes r
             JOIN tipos_reportes tr ON r.id_tipo_reporte = tr.id_tipo_reporte
-            JOIN empleados e ON r.id_empleado = e.id_empleado
+            JOIN cliente c ON r.id_usuario = c.id_usuario
+            LEFT JOIN alertas a ON r.id_alerta = a.id_alerta
+            LEFT JOIN tipos_alertas ta ON a.id_tipo_alerta = ta.id_tipo_alerta
             WHERE r.id_reporte = %s
         """, (id_reporte,))
         reporte = cur.fetchone()
@@ -411,24 +417,48 @@ def validar_reporte(id_reporte, accion):
         return redirect(url_for("login_page"))
 
     db = get_db()
-    nuevo_estado = "pendiente"
 
-    if accion == "aprobar":
-        nuevo_estado = "aprobado"
-    elif accion == "rechazar":
-        nuevo_estado = "rechazado"
-    else:
+    if accion not in ["aprobado", "rechazo"]:
         return "Acción no válida", 400
 
-    with db.cursor() as cur:
-        cur.execute("""
-            UPDATE reportes
-            SET estado_validacion = %s
-            WHERE id_reporte = %s
-        """, (nuevo_estado, id_reporte))
+    nombre_alerta = f"{accion}_reporte"  # genera: 'aprobado_reporte' o 'rechazo_reporte'
+
+    try:
+        with db.cursor() as cur:
+            # 1. Obtener el id del tipo de alerta
+            cur.execute("""
+                SELECT id_tipo_alerta FROM tipos_alertas WHERE nombre_tipo_alerta = %s
+            """, (nombre_alerta,))
+            resultado_alerta = cur.fetchone()
+            if not resultado_alerta:
+                return f"No se encontró el tipo de alerta '{nombre_alerta}'", 500
+
+            id_tipo_alerta = resultado_alerta[0]
+
+            # 2. Crear la alerta y obtener su id
+            cur.execute("""
+                INSERT INTO alertas (id_tipo_alerta, fecha_alerta)
+                VALUES (%s, NOW())
+                RETURNING id_alerta
+            """, (id_tipo_alerta,))
+            id_alerta = cur.fetchone()[0]
+
+            # 3. Asignar esa alerta al reporte
+            cur.execute("""
+                UPDATE reportes
+                SET id_alerta = %s
+                WHERE id_reporte = %s
+            """, (id_alerta, id_reporte))
+
         db.commit()
+    except Exception as e:
+        db.rollback()
+        return f"Error al procesar la validación del reporte: {e}", 500
 
     return redirect(url_for("biologo_dashboard"))
+
+
+
 
 
 

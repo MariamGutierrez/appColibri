@@ -36,25 +36,28 @@
                 <td>{{ reporte[5] }}</td> <!-- Nombre de Usuario -->
 
                 <td>
-                    {% if reporte[6] == 'pendiente' %}
-                        <span class="badge bg-warning text-dark">Pendiente</span>
-                    {% elif reporte[6] == 'aprobado' %}
+                    {% if reporte[6] %}
+                      {% if reporte[6] == 'aprobado_reporte' %}
                         <span class="badge bg-success">Aprobado</span>
-                    {% elif reporte[6] == 'rechazado' %}
+                      {% elif reporte[6] == 'rechazo_reporte' %}
                         <span class="badge bg-danger">Rechazado</span>
+                      {% else %}
+                        <span class="badge bg-warning text-dark">{{ reporte[6] }}</span>
+                      {% endif %}
                     {% else %}
-                        <span class="badge bg-secondary">Desconocido</span>
+                      <span class="badge bg-secondary">En revisión</span>
                     {% endif %}
-                </td>
+                  </td>
+                  
 
                 <td>
                     <a href="{{ url_for('editar_reporte', id_reporte=reporte[0]) }}" class="btn btn-primary btn-sm mb-1">Editar</a>
 
-                    <form action="{{ url_for('validar_reporte', id_reporte=reporte[0], accion='aprobar') }}" method="POST" style="display:inline;">
+                    <form action="{{ url_for('validar_reporte', id_reporte=reporte[0], accion='aprobado') }}" method="POST" style="display:inline;">
                         <button type="submit" class="btn btn-success btn-sm mb-1">Aprobar</button>
                     </form>
 
-                    <form action="{{ url_for('validar_reporte', id_reporte=reporte[0], accion='rechazar') }}" method="POST" style="display:inline;">
+                    <form action="{{ url_for('validar_reporte', id_reporte=reporte[0], accion='rechazo') }}" method="POST" style="display:inline;">
                         <button type="submit" class="btn btn-danger btn-sm mb-1">Rechazar</button>
                     </form>
                 </td>

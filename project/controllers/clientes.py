@@ -7,6 +7,6 @@ usuarios_bp = Blueprint("usuarios", __name__)
 def get_usuarios():
     db = get_db()
     with db.cursor() as cur:
-        cur.execute("SELECT * FROM usuarios;")
+        cur.execute("SELECT * FROM empleados;")
         usuarios = cur.fetchall()
     return jsonify(usuarios)

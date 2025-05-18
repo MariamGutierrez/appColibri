@@ -1,27 +1,17 @@
 import os
 import psycopg2
 from flask import g
-from urllib.parse import urlparse
+from dotenv import load_dotenv
+
+load_dotenv()  # Carga .env desde el raíz del proyecto
 
 def get_db():
-    if "db" not in g:
-        db_url = os.getenv("DATABASE_URL")
-        if db_url is None:
-            raise RuntimeError("DATABASE_URL no está definida")
-
-        result = urlparse(db_url)
-        g.db = psycopg2.connect(
-            dbname=result.path[1:],
-            user=result.username,
-            password=result.password,
-            host=result.hostname,
-            port=result.port,
-            sslmode="require"  # Railway requiere conexión segura
-        )
-    return g.db
+    print("🌐 Conectando a:", os.environ.get("DATABASE_URL"))  # DEBUG
+    return psycopg2.connect(os.environ["DATABASE_URL"])
 
 def close_db(e=None):
     db = g.pop("db", None)
     if db is not None:
         db.close()
+
 

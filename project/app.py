@@ -2,7 +2,7 @@ from importlib.metadata import files
 from flask import Flask, jsonify, request, render_template, redirect, url_for, session, flash
 from db import get_db, close_db
 from werkzeug.security import generate_password_hash, check_password_hash
-from controllers.usuarios import usuarios_bp
+from controllers.clientes import usuarios_bp
 from db import get_db
 import re
 from authentication import blueprint as authentication_blueprint
@@ -39,7 +39,6 @@ def allowed_file(filename):
 
 # Register the authentication blueprint
 app.register_blueprint(authentication_blueprint)
-
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -52,22 +51,38 @@ def login_page():
 
         db = get_db()
         with db.cursor() as cur:
-            # Obtener el usuario con su hash de contraseña más reciente
+            # 1. Buscar en empleados
             cur.execute("""
-                SELECT u.id_usuario, u.id_rol, h.contrasena_hash
-                FROM usuarios u
-                JOIN Historial_contrasenas h ON u.id_usuario = h.id_usuario
-                WHERE u.correo = %s
+                SELECT e.id_empleado, e.id_rol, h.contrasena_hash, 'empleado' AS tipo
+                FROM empleados e
+                JOIN historial_contrasenas h ON e.id_empleado = h.id_empleado
+                WHERE e.correo = %s
                 ORDER BY h.fecha_registro DESC
                 LIMIT 1
             """, (correo,))
             user = cur.fetchone()
 
+            # 2. Si no está en empleados, buscar en clientes
+            if not user:
+                cur.execute("""
+                    SELECT c.id_usuario, c.rol, h.contrasena_hash, 'cliente' AS tipo
+                    FROM cliente c
+                    JOIN historial_contrasenas h ON c.id_usuario = h.id_usuario
+                    WHERE c.correo = %s
+                    ORDER BY h.fecha_registro DESC
+                    LIMIT 1
+                """, (correo,))
+                user = cur.fetchone()
+
+
         if user and check_password_hash(user[2], password):
             session["user_id"] = user[0]
             session["user_role"] = user[1]
+            session["user_type"] = user[3]  # 'empleado' o 'cliente'
 
-            role = user[1]
+
+            role = int(user[1])  # Asegura que sea int
+            session["user_role"] = role
             # Redirección basada en rol (misma lógica del registro)
             if role == 1:
                 return redirect(url_for("user_dashboard"))
@@ -83,12 +98,17 @@ def login_page():
                 return redirect(url_for("index"))
 
         return render_template("login.html", msg="Credenciales incorrectas")
+    
 
     return render_template("login.html")
 
 @app.route("/user")
 def user_dashboard():
-    if "user_role" in session and session["user_role"] == 1:
+    if (
+        "user_role" in session 
+        and session["user_role"] == 1
+        and session.get("user_type") == "cliente"
+    ):
         return render_template("user_index.html")
     return redirect(url_for("login_page"))
 
@@ -122,7 +142,7 @@ def check_email():
     email = request.args.get("email")
     db = get_db()
     with db.cursor() as cur:
-        cur.execute("SELECT 1 FROM usuarios WHERE correo = %s", (email,))
+        cur.execute("SELECT 1 FROM empleados WHERE correo = %s", (email,))
         exists = cur.fetchone() is not None
     return jsonify({"exists": exists})
 
@@ -131,7 +151,7 @@ def check_username():
     username = request.args.get("username")
     db = get_db()
     with db.cursor() as cur:
-        cur.execute("SELECT 1 FROM usuarios WHERE nombre = %s", (username,))
+        cur.execute("SELECT 1 FROM empleados WHERE nombre = %s", (username,))
         exists = cur.fetchone() is not None
     return jsonify({"exists": exists})
 
@@ -155,46 +175,77 @@ def register():
         else:
             db = get_db()
             with db.cursor() as cur:
-                cur.execute("SELECT 1 FROM usuarios WHERE correo = %s", (email,))
-                if cur.fetchone():
-                    msg = "El correo ya está registrado"
-                else:
-                    cur.execute("SELECT 1 FROM usuarios WHERE nombre = %s", (username,))
+                if int(role) == 1:
+                    # Registrar en tabla cliente
+                    cur.execute("SELECT 1 FROM cliente WHERE correo = %s", (email,))
                     if cur.fetchone():
-                        msg = "El nombre de usuario ya está en uso"
+                        msg = "El correo ya está registrado"
                     else:
-                        hashed_password = generate_password_hash(password)
+                        cur.execute("SELECT 1 FROM cliente WHERE nombre = %s", (username,))
+                        if cur.fetchone():
+                            msg = "El nombre de usuario ya está en uso"
+                        else:
+                            hashed_password = generate_password_hash(password)
 
-                        cur.execute("""
-                            INSERT INTO usuarios (nombre, apellido1, correo, id_rol)
-                            VALUES (%s, %s, %s, %s)
-                            RETURNING id_usuario
-                        """, (username, lastname, email, role))
-                        user_id = cur.fetchone()[0]
+                            cur.execute("""
+                                INSERT INTO cliente (nombre, apellido1, correo, rol)
+                                VALUES (%s, %s, %s, %s)
+                                RETURNING id_usuario
+                            """, (username, lastname, email, role))
+                            user_id = cur.fetchone()[0]
 
-                        cur.execute("""
-                            INSERT INTO Historial_contrasenas (id_usuario, contrasena_hash)
-                            VALUES (%s, %s)
-                        """, (user_id, hashed_password))
-                        db.commit()
+                            cur.execute("""
+                                INSERT INTO historial_contrasenas (id_usuario, contrasena_hash)
+                                VALUES (%s, %s)
+                            """, (user_id, hashed_password))
+                            db.commit()
 
-                        session["user_id"] = user_id
-                        session["user_role"] = int(role)
-                        return redirect(url_for("ong_dashboard"))
+                            session["user_id"] = user_id
+                            session["user_role"] = int(role)
+                            session["user_type"] = "cliente"
+                            return redirect(url_for("user_dashboard"))
 
+                else:
+                    # Registrar en empleados
+                    cur.execute("SELECT 1 FROM empleados WHERE correo = %s", (email,))
+                    if cur.fetchone():
+                        msg = "El correo ya está registrado"
+                    else:
+                        cur.execute("SELECT 1 FROM empleados WHERE nombre = %s", (username,))
+                        if cur.fetchone():
+                            msg = "El nombre de usuario ya está en uso"
+                        else:
+                            hashed_password = generate_password_hash(password)
+
+                            cur.execute("""
+                                INSERT INTO empleados (nombre, apellido1, correo, id_rol)
+                                VALUES (%s, %s, %s, %s)
+                                RETURNING id_empleado
+                            """, (username, lastname, email, role))
+                            user_id = cur.fetchone()[0]
+
+                            cur.execute("""
+                                INSERT INTO historial_contrasenas (id_empleado, contrasena_hash)
+                                VALUES (%s, %s)
+                            """, (user_id, hashed_password))
+                            db.commit()
+
+                            session["user_id"] = user_id
+                            session["user_role"] = int(role)
+                            return redirect(url_for("ong_dashboard"))
         return render_template("register.html", msg=msg)
 
     return render_template("register.html")
 
 #### METODOS GET ####
 ######tienes que poner los que necesites ahi segun lo que vayas haciendo######
-@app.route("/usuarios")
+@app.route("/clientes")
 def get_usuarios():
     db = get_db()
     with db.cursor() as cur:
-        cur.execute("SELECT * FROM usuarios;")
-        usuarios = cur.fetchall()
-    return jsonify(usuarios)
+        cur.execute("SELECT * FROM empleados;")
+        clientes = cur.fetchall()
+    return jsonify(clientes)
 
 @app.route("/pqrs")
 def get_pqrs():
@@ -226,7 +277,7 @@ def crear_pqrs():
 def reportar():
     db = get_db()
     uploaded_urls = []
-    
+
     if request.method == "POST":
         id_usuario = session.get("user_id")
         id_tipo_reporte = request.form.get("id_tipo_reporte")
@@ -234,30 +285,39 @@ def reportar():
         direccion = request.form.get("direccion")
         id_alerta = random.randint(1000, 9999)
 
-        # Manejar archivo
-        file = request.files.getlist('foto')  # ahora recibimos 'foto'
+        files = request.files.getlist('foto')  # corregido: variable era 'file', ahora es 'files'
 
-        if not all([id_usuario, id_tipo_reporte, descripcion, direccion, file]):
+        if not all([id_usuario, id_tipo_reporte, descripcion, direccion, files]):
             with db.cursor() as cur:
                 cur.execute("SELECT id_tipo_reporte, nombre_tipo_reporte FROM tipos_reportes")
                 tipos_reporte = cur.fetchall()
-            return render_template("page-contact-us.html", msg="Todos los campos obligatorios deben ser completados", tipos_reporte=tipos_reporte)
+            return render_template(
+                "page-contact-us.html",
+                msg="Todos los campos obligatorios deben ser completados",
+                tipos_reporte=tipos_reporte
+            )
+
         for file in files:
             if file and allowed_file(file.filename):
                 upload_result = cloudinary.uploader.upload(file)
                 uploaded_urls.append(upload_result['secure_url'])
-        else:
-            with db.cursor() as cur:
-                cur.execute("SELECT id_tipo_reporte, nombre_tipo_reporte FROM tipos_reportes")
-                tipos_reporte = cur.fetchall()
-            return render_template("page-contact-us.html", msg="Tipo de archivo no permitido. Solo PNG o JPG.", tipos_reporte=tipos_reporte)
+            else:
+                with db.cursor() as cur:
+                    cur.execute("SELECT id_tipo_reporte, nombre_tipo_reporte FROM tipos_reportes")
+                    tipos_reporte = cur.fetchall()
+                return render_template(
+                    "page-contact-us.html",
+                    msg="Tipo de archivo no permitido. Solo PNG o JPG.",
+                    tipos_reporte=tipos_reporte
+                )
 
-        # Insertar reporte en base de datos
+        # Insertar reportes con cada imagen subida
         with db.cursor() as cur:
-            cur.execute("""
-                INSERT INTO Reportes (id_usuario, id_tipo_reporte, descripcion, fecha_reporte, foto_url, id_alerta, direccion)
-                VALUES (%s, %s, %s, NOW(), %s, %s, %s)
-            """, (id_usuario, id_tipo_reporte, descripcion, foto_url, id_alerta, direccion))
+            for foto_url in uploaded_urls:
+                cur.execute("""
+                    INSERT INTO Reportes (id_usuario, id_tipo_reporte, descripcion, fecha_reporte, foto_url, id_alerta, direccion)
+                    VALUES (%s, %s, %s, NOW(), %s, %s, %s)
+                """, (id_usuario, id_tipo_reporte, descripcion, foto_url, id_alerta, direccion))
             db.commit()
 
         with db.cursor() as cur:
@@ -280,15 +340,15 @@ def biologo_dashboard():
             cur.execute("""
                 SELECT 
                     r.id_reporte,               -- 0
-                    tr.nombre_tipo_reporte,     -- 1
-                    r.descripcion,              -- 2
-                    r.fecha_reporte,             -- 3
-                    r.foto_url,                  -- 4
-                    u.nombre,            -- 5
-                    r.estado_validacion          -- 6
+                    tr.nombre_tipo_reporte,    -- 1
+                    r.descripcion,             -- 2
+                    r.fecha_reporte,           -- 3
+                    r.foto_url,                -- 4
+                    e.nombre,                  -- 5 (nombre del empleado)
+                    r.id_alerta        -- 6
                 FROM reportes r
                 JOIN tipos_reportes tr ON r.id_tipo_reporte = tr.id_tipo_reporte
-                JOIN usuarios u ON r.id_usuario = u.id_usuario
+                JOIN empleados e ON e.id_empleado = e.id_empleado
             """)
             reportes = cur.fetchall()
         return render_template("biologo_dashboard.html", reportes=reportes)
@@ -321,13 +381,20 @@ def editar_reporte(id_reporte):
     # GET - obtener los datos actuales
     with db.cursor() as cur:
         cur.execute("""
-            SELECT r.descripcion, r.foto_url, tr.nombre_tipo_reporte, r.fecha_reporte, r.id_tipo_reporte, u.nombre
+            SELECT 
+                r.descripcion, 
+                r.foto_url, 
+                tr.nombre_tipo_reporte, 
+                r.fecha_reporte, 
+                r.id_tipo_reporte, 
+                e.nombre
             FROM reportes r
             JOIN tipos_reportes tr ON r.id_tipo_reporte = tr.id_tipo_reporte
-            JOIN usuarios u ON r.id_usuario = u.id_usuario
+            JOIN empleados e ON r.id_empleado = e.id_empleado
             WHERE r.id_reporte = %s
         """, (id_reporte,))
         reporte = cur.fetchone()
+
 
         # Obtener tipos de reportes para permitir cambiarlo
         cur.execute("SELECT id_tipo_reporte, nombre_tipo_reporte FROM tipos_reportes")
@@ -371,6 +438,7 @@ def teardown(exception):
     close_db()
 
 if __name__ == '__main__':
-    import os
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
+
+
 

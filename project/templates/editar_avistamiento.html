@@ -1,0 +1,48 @@
+{% extends 'layouts/base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2>Editar Avistamiento</h2>
+    <form method="POST">
+        <div class="form-group mb-3">
+            <label for="descripcion">Descripción</label>
+            <textarea class="form-control" id="descripcion" name="descripcion" required>{{ avistamiento[0] }}</textarea>
+        </div>
+
+        <div class="form-group mb-3">
+            <label for="foto_url">URL de la Foto</label>
+            <input type="text" class="form-control" id="foto_url" name="foto_url" value="{{ avistamiento[1] }}" oninput="updateImagePreview()">
+        </div>
+
+        <div class="form-group mb-3">
+            <label>Vista previa de la imagen</label><br>
+            <img id="imagePreview" src="{{ avistamiento[1] }}" alt="Vista previa de la imagen" style="max-width: 400px; max-height: 400px; border: 1px solid #ccc; padding: 5px;">
+        </div>
+
+        <div class="form-group mb-3">
+            <label for="id_especie">Tipo de Especie</label>
+            <select class="form-control" id="id_especie" name="id_especie" required>
+                {% for especie in especies %}
+                    <option value="{{ especie[0] }}" {% if especie[0] == avistamiento[3] %}selected{% endif %}>{{ especie[1] }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group mb-3">
+            <label for="ubicacion">Ubicación</label>
+            <input type="text" class="form-control" id="ubicacion" name="ubicacion" value="{{ avistamiento[4] }}">
+        </div>
+
+        <button type="submit" class="btn btn-success">Guardar Cambios</button>
+        <a href="{{ url_for('biologo_dashboard') }}" class="btn btn-secondary">Cancelar</a>
+    </form>
+</div>
+
+<script>
+function updateImagePreview() {
+    var url = document.getElementById('foto_url').value;
+    document.getElementById('imagePreview').src = url;
+}
+</script>
+{% endblock %}
+

@@ -1,0 +1,59 @@
+{% extends 'layouts/base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+  <h2>Perfil de Usuario</h2>
+
+  <div class="card mb-4">
+    <div class="card-body">
+      <p><strong>Nombre:</strong> {{ usuario[0] }}</p>
+      <p><strong>Correo:</strong> {{ usuario[1] }}</p>
+    </div>
+  </div>
+
+  <!-- Avistamientos -->
+  <h4>Mis Avistamientos</h4>
+  {% if avistamientos %}
+    <ul class="list-group mb-4">
+      {% for a in avistamientos %}
+      <li class="list-group-item">
+        <strong>Especie:</strong> {{ a[2] }}<br>
+        <strong>Descripción:</strong> {{ a[0] }}<br>
+        <small><strong>Fecha:</strong> {{ a[1] }} | <strong>Estado:</strong> 
+          {% if a[3] %}
+            <span class="badge bg-info text-dark">{{ a[3] }}</span>
+          {% else %}
+            <span class="badge bg-secondary">Sin estado</span>
+          {% endif %}
+        </small>
+      </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="text-muted">No has registrado avistamientos.</p>
+  {% endif %}
+
+  <!-- Reportes -->
+  <h4>Mis Reportes</h4>
+  {% if reportes %}
+    <ul class="list-group">
+      {% for r in reportes %}
+      <li class="list-group-item">
+        <strong>Tipo de Reporte:</strong> {{ r[2] }}<br>
+        <strong>Descripción:</strong> {{ r[0] }}<br>
+        <small><strong>Fecha:</strong> {{ r[1] }} | <strong>Estado:</strong> 
+          {% if r[3] %}
+            <span class="badge bg-info text-dark">{{ r[3] }}</span>
+          {% else %}
+            <span class="badge bg-secondary">Sin estado</span>
+          {% endif %}
+        </small>
+      </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="text-muted">No has enviado reportes.</p>
+  {% endif %}
+</div>
+{% endblock %}
+

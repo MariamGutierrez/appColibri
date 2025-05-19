@@ -1,0 +1,55 @@
+{% extends "layouts/base.html" %}
+
+{% block content %}
+<div class="container mt-5">
+  <h2 class="text-center mb-4">Panel de Moderador</h2>
+
+  <div class="row row-cols-1 row-cols-md-2 g-4">
+
+    <!-- Administración de Avistamientos y Reportes -->
+    <div class="col">
+      <div class="card h-100 shadow-sm">
+        <div class="card-body text-center">
+          <h5 class="card-title">Avistamientos y Reportes</h5>
+          <p class="card-text">Gestiona los avistamientos y reportes enviados por los usuarios.</p>
+          <a href="{{ url_for('admin_avistamientos') }}" class="btn btn-primary">Ir</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Publicación de Noticias -->
+    <div class="col">
+      <div class="card h-100 shadow-sm">
+        <div class="card-body text-center">
+          <h5 class="card-title">Noticias</h5>
+          <p class="card-text">Publica y administra noticias relevantes para la comunidad.</p>
+          <a href="{{ url_for('admin_noticias') }}" class="btn btn-primary">Ir</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Administración de Usuarios -->
+    <div class="col">
+      <div class="card h-100 shadow-sm">
+        <div class="card-body text-center">
+          <h5 class="card-title">Usuarios</h5>
+          <p class="card-text">Edita, activa o elimina cuentas de usuarios del sistema.</p>
+          <a href="{{ url_for('admin_usuarios') }}" class="btn btn-primary">Ir</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Administración de PQRs -->
+    <div class="col">
+      <div class="card h-100 shadow-sm">
+        <div class="card-body text-center">
+          <h5 class="card-title">PQRs</h5>
+          <p class="card-text">Gestiona peticiones, quejas, reclamos y sugerencias de los ciudadanos.</p>
+          <a href="{{ url_for('admin_pqrs') }}" class="btn btn-primary">Ir</a>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

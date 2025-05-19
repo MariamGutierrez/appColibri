@@ -65,6 +65,63 @@
             {% endfor %}
         </tbody>
     </table>
+    <h2 class="mb-4 mt-5">Avistamientos</h2>
+
+<table class="table table-striped table-bordered align-middle text-center">
+    <thead class="table-dark">
+        <tr>
+            <th>ID</th>
+            <th>Especie</th>
+            <th>Descripción</th>
+            <th>Fecha</th>
+            <th>Imagen</th>
+            <th>Usuario que subió</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for avistamiento in avistamientos %}
+        <tr>
+            <td>{{ avistamiento[0] }}</td>
+            <td>{{ avistamiento[1] }}</td>
+            <td>{{ avistamiento[2] }}</td>
+            <td>{{ avistamiento[3] }}</td>
+            <td>
+                {% if avistamiento[4] %}
+                    <img src="{{ avistamiento[4] }}" alt="Imagen" style="max-width: 150px; max-height: 150px; object-fit: cover;">
+                {% else %}
+                    <span>No disponible</span>
+                {% endif %}
+            </td>
+            <td>{{ avistamiento[5] }}</td>
+            <td>
+                {% if avistamiento[6] %}
+                    {% if avistamiento[6] == 'aprovado_avistamiento' %}
+                        <span class="badge bg-success">Aprobado</span>
+                    {% elif avistamiento[6] == 'rechazo_avistamiento' %}
+                        <span class="badge bg-danger">Rechazado</span>
+                    {% else %}
+                        <span class="badge bg-warning text-dark">En revisión</span>
+                    {% endif %}
+                {% else %}
+                    <span class="badge bg-secondary">Sin estado</span>
+                {% endif %}
+            </td>
+            <td>
+                <a href="{{ url_for('editar_avistamiento', id_avistamiento=avistamiento[0]) }}" class="btn btn-primary btn-sm mb-1">Editar</a>
+                <form action="{{ url_for('validar_avistamiento', id_avistamiento=avistamiento[0], accion='aprovado') }}" method="POST" style="display:inline;">
+                    <button type="submit" class="btn btn-success btn-sm mb-1">Aprobar</button>
+                </form>
+                <form action="{{ url_for('validar_avistamiento', id_avistamiento=avistamiento[0], accion='rechazo') }}" method="POST" style="display:inline;">
+                    <button type="submit" class="btn btn-danger btn-sm mb-1">Rechazar</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
 
     <a href="{{ url_for('logout') }}" class="btn btn-secondary mt-3">Cerrar Sesión</a>
 </div>

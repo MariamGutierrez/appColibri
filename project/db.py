@@ -3,11 +3,16 @@ import psycopg2
 from flask import g
 from dotenv import load_dotenv
 
-load_dotenv()  # Carga .env desde el raíz del proyecto
+load_dotenv(override=True)  # Carga .env desde el raíz del proyecto
+
+print("Valor desde .env:", repr(os.getenv("DATABASE_URL")))
+print("Fuente probable:", "Sistema" if os.getenv("DATABASE_URL").startswith("postgresql://dottoooo") else "Archivo .env")
 
 def get_db():
-    print("🌐 Conectando a:", os.environ.get("DATABASE_URL"))  # DEBUG
-    return psycopg2.connect(os.environ["DATABASE_URL"])
+    print("Valor final de DATABASE_URL:", repr(os.environ.get("DATABASE_URL")))
+    db_url = os.environ.get("DATABASE_URL")
+    print("Conectando a:", db_url)  # DEBUG
+    return psycopg2.connect(db_url)
 
 def close_db(e=None):
     db = g.pop("db", None)

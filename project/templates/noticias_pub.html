@@ -1,0 +1,118 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %} Caso de Maltrato {% endblock title %}
+
+{% block stylesheets %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+{% endblock stylesheets %}
+
+{% block body_class %} contact-us {% endblock body_class %}
+
+{% block content %}
+
+  {% include "includes/navigation-light.html" %}
+
+  <header>
+    <div class="page-header section-height-85">
+      <div>
+        <img class="position-absolute fixed-top ms-auto w-50 h-100 z-index-0 d-none d-sm-none d-md-block border-radius-section border-top-end-radius-0 border-top-start-radius-0 border-bottom-end-radius-0" src="/static/assets/img/curved-images/curved8.jpg">
+      </div>
+      <div class="container">
+        <div class="row">
+          <div class="col-lg-7 d-flex justify-content-center flex-column">
+            <div class="card d-flex blur justify-content-center p-4 shadow-lg my-sm-0 my-sm-6 mt-8 mb-5">
+              <div class="text-center">
+                <h3 class="text-gradient text-primary">Base para publicacion de noticias</h3>
+                <p class="mb-0">
+                  Este formulario es una plantilla base sin funcionalidad. Úsalo como guía para implementar las publicaciones.
+                </p>
+              </div>
+
+              <!-- Formulario sin acción ni método -->
+              <form id="report-form" autocomplete="off" enctype="multipart/form-data">
+                <div class="card-body pb-2">
+                  <div class="row">
+                    <div class="col-md-6">
+                      <label for="id_tipo_reporte">Tipo de Reporte</label>
+                      <select name="id_tipo_reporte" id="id_tipo_reporte" class="form-control" disabled>
+                        <option>Seleccione un tipo de reporte</option>
+                      </select>
+                    </div>
+                    <div class="col-md-6 ps-md-2">
+                      <label for="foto">Foto del Reporte</label>
+                      <input type="file" name="fotos" id="fotos" class="form-control" accept="image/png, image/jpeg" multiple disabled>
+                      <div class="mt-3 text-center">
+                        <div id="previewImages" class="mt-3 text-center d-flex flex-wrap gap-3 justify-content-center"></div>                      
+                      </div>                    
+                    </div>
+                  </div>
+
+                  <div class="form-group mt-4">
+                    <label for="descripcion">Descripción</label>
+                    <textarea name="descripcion" id="descripcion" class="form-control" rows="6" placeholder="Describe el problema" disabled></textarea>
+                  </div>
+
+                  <div class="form-group mt-4">
+                    <label for="direccion">Dirección</label>
+                    <input type="text" name="direccion" id="direccion" class="form-control" placeholder="Dirección" disabled>
+                  </div>
+
+                  <div id="map" style="height: 300px; border-radius: 12px;" class="mt-3"></div>                  
+
+                  <div class="row">
+                    <div class="col-md-12 text-center">
+                      <button type="button" class="btn bg-gradient-secondary mt-3 mb-0" disabled>Formulario de ejemplo</button>
+                    </div>
+                  </div>
+
+                </div>
+              </form>
+
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+{% endblock content %}
+
+{% block javascripts %}
+<script src="/static/assets/js/soft-design-system.min.js?v=1.0.1"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+  const bounds = L.latLngBounds([4.5, -74.3], [4.9, -73.9]);
+  const map = L.map('map', {
+    maxBounds: bounds,
+    maxBoundsViscosity: 1.0
+  }).setView([4.7110, -74.0721], 12);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+
+  let marker;
+
+  map.on('click', function (e) {
+    const lat = e.latlng.lat;
+    const lon = e.latlng.lng;
+
+    const reverseUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`;
+
+    fetch(reverseUrl)
+      .then(response => response.json())
+      .then(data => {
+        const displayName = data.display_name;
+        if (marker) {
+          map.removeLayer(marker);
+        }
+        marker = L.marker([lat, lon]).addTo(map).bindPopup(displayName).openPopup();
+      })
+      .catch(error => {
+        console.error("Error al obtener dirección inversa:", error);
+      });
+  });
+</script>
+{% endblock javascripts %}

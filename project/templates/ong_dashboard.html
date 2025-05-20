@@ -1,0 +1,88 @@
+{% extends 'layouts/base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2 class="mb-4">Panel de Reportes Ambientales</h2>
+
+    <!-- Filtros -->
+    <form method="GET" action="{{ url_for('ong_dashboard') }}" class="row g-3 mb-4">
+        <div class="col-md-4">
+            <label for="tipo_especie" class="form-label">Tipo de Reporte</label>
+            <select name="tipo_especie" id="tipo_especie" class="form-select">
+                <option value="">Todos</option>
+                {% for tipo in tipos_especies %}
+                    <option value="{{ tipo.id_tipo_especie }}" {% if filtro_tipo == tipo.id_tipo_especie|string %}selected{% endif %}>
+                        {{ tipo.nombre_tipo_especie }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="col-md-4">
+            <label for="ubicacion" class="form-label">Ubicación</label>
+            <input type="text" name="ubicacion" id="ubicacion" class="form-control" value="{{ filtro_ubicacion or '' }}">
+        </div>
+
+        <div class="col-md-4">
+            <label for="fecha" class="form-label">Fecha</label>
+            <input type="date" name="fecha" id="fecha" class="form-control" value="{{ filtro_fecha or '' }}">
+        </div>
+
+        <div class="col-12">
+            <button type="submit" class="btn btn-primary">Filtrar</button>
+        </div>
+    </form>
+
+    <!-- Tabla de reportes -->
+    <table class="table table-bordered table-hover align-middle">
+        <thead class="table-dark">
+            <tr>
+                <th>Imagen</th>
+                <th>Descripción</th>
+                <th>Ubicación</th>
+                <th>Fecha</th>
+                <th>Tipo de Reporte</th>
+                <th>Estado</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in reportes %}
+            <tr>
+                <td>
+                    {% if r.foto_url %}
+                        <img src="{{ r.foto_url }}" alt="Foto" style="max-width: 120px; max-height: 120px; object-fit: cover;">
+                    {% else %}
+                        No disponible
+                    {% endif %}
+                </td>
+                <td>{{ r.descripcion }}</td>
+                <td>{{ r.ubicacion }}</td>
+                <td>{{ r.fecha.strftime('%Y-%m-%d') }}</td>
+                <td>{{ r.tipo }}</td>
+                <td>
+                    {% if r.estado %}
+                        <span class="badge bg-info text-dark">{{ r.estado.replace('_', ' ') }}</span>
+                    {% else %}
+                        <span class="badge bg-secondary">En revisión</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if r.estado != 'ONG_tomo_caso' %}
+                    <form action="{{ url_for('ong_tomar_caso', id_reporte=r.id_reporte) }}" method="POST" style="display:inline;">
+                        <button type="submit" class="btn btn-success btn-sm">Tomar caso</button>
+                    </form>
+                    {% else %}
+                    <span class="badge bg-success">Caso asignado</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% if not reportes %}
+        <div class="alert alert-warning text-center mt-4">No se encontraron reportes con los filtros seleccionados.</div>
+    {% endif %}
+</div>
+{% endblock %}
+

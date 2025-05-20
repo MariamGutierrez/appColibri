@@ -17,6 +17,14 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from dotenv import load_dotenv
+from datetime import datetime
+import time
+import os
+from werkzeug.utils import secure_filename
+from flask import request, jsonify
+import uuid
+import psycopg2.extras
+from routes.noticias import noticias_bp
 
 load_dotenv()
 # Configurar Cloudinary
@@ -33,23 +41,22 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 
 app = Flask(__name__)
 app.secret_key = 'clave_secreta_segura'  # Necesario para manejar sesiones
+# Asegurar que la carpeta 'static/uploads' exista
 
+
+# Registrar el blueprint de noticias
+app.register_blueprint(noticias_bp)
+
+# Configuración para subida de archivos
+UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static/uploads')
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# Asegurar que la carpeta 'static/uploads' exista
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-
-# Register the authentication blueprint
-app.register_blueprint(authentication_blueprint)
-@app.route("/")
-def index():
-    return render_template("index.html")
-
 @app.route("/login", methods=["GET", "POST"])
 def login_page():
     if request.method == "POST":
@@ -69,7 +76,7 @@ def login_page():
             """, (correo,))
             user = cur.fetchone()
 
-            # 2. Si no está en empleados, buscar en clientes
+            # 2. Buscar en clientes si no fue encontrado
             if not user:
                 cur.execute("""
                     SELECT c.id_usuario, c.rol, h.contrasena_hash, 'cliente' AS tipo
@@ -81,16 +88,28 @@ def login_page():
                 """, (correo,))
                 user = cur.fetchone()
 
+            # 3. Buscar en ONGs si no fue encontrado
+            if not user:
+                cur.execute("""
+                    SELECT o.id_ong, o.rol, h.contrasena_hash, 'ong' AS tipo
+                    FROM ong o
+                    JOIN historial_contrasenas h ON o.id_ong = h.ong_id
+                    WHERE o.email_ong = %s
+                    ORDER BY h.fecha_registro DESC
+                    LIMIT 1
+                """, (correo,))
+                user = cur.fetchone()
 
         if user and check_password_hash(user[2], password):
             session["user_id"] = user[0]
             session["user_role"] = user[1]
-            session["user_type"] = user[3]  # 'empleado' o 'cliente'
+            session["user_type"] = user[3]  # 'empleado', 'cliente', 'ong'
 
+            role = int(user[1]) if isinstance(user[1], (int, float, str)) and str(user[1]).isdigit() else user[1]
 
-            role = int(user[1])  # Asegura que sea int
             session["user_role"] = role
-            # Redirección basada en rol (misma lógica del registro)
+
+            # Redirección según rol
             if role == 1:
                 return redirect(url_for("user_dashboard"))
             elif role == 2:
@@ -105,11 +124,11 @@ def login_page():
                 return redirect(url_for("index"))
 
         return render_template("login.html", msg="Credenciales incorrectas")
-    
 
     return render_template("login.html")
 
-@app.route("/user")
+
+@app.route("/")
 def user_dashboard():
     if (
         "user_role" in session 
@@ -124,47 +143,51 @@ def perfil_usuario():
     if "user_id" not in session:
         return redirect(url_for("login_page"))
 
+    user_id = session["user_id"]
     db = get_db()
-    id_usuario = session["user_id"]
-
     with db.cursor() as cur:
         # Datos del usuario
-        cur.execute("SELECT nombre, correo FROM cliente WHERE id_usuario = %s", (id_usuario,))
+        cur.execute("SELECT nombre, correo, apellido1 FROM cliente WHERE id_usuario = %s", (user_id,))
         usuario = cur.fetchone()
 
-        # Avistamientos
+        # Avistamientos del usuario
         cur.execute("""
-            SELECT 
-                a.descripcion,
-                a.fecha_avistamiento,
-                e.nombre_comun,
-                ta.nombre_tipo_alerta
+            SELECT a.descripcion, a.fecha_avistamiento, e.nombre_comun, ta.nombre_tipo_alerta
             FROM avistamientos a
             JOIN especies e ON a.id_especie = e.id_especie
             LEFT JOIN alertas al ON a.alerta_id = al.id_alerta
             LEFT JOIN tipos_alertas ta ON al.id_tipo_alerta = ta.id_tipo_alerta
             WHERE a.id_usuario = %s
-            ORDER BY a.fecha_avistamiento DESC
-        """, (id_usuario,))
+        """, (user_id,))
         avistamientos = cur.fetchall()
 
-        # Reportes
+        # Reportes del usuario
         cur.execute("""
-            SELECT 
-                r.descripcion,
-                r.fecha_reporte,
-                tr.nombre_tipo_reporte,
-                ta.nombre_tipo_alerta
+            SELECT r.descripcion, r.fecha_reporte, tr.nombre_tipo_reporte, ta.nombre_tipo_alerta
             FROM reportes r
             JOIN tipos_reportes tr ON r.id_tipo_reporte = tr.id_tipo_reporte
             LEFT JOIN alertas al ON r.id_alerta = al.id_alerta
             LEFT JOIN tipos_alertas ta ON al.id_tipo_alerta = ta.id_tipo_alerta
             WHERE r.id_usuario = %s
-            ORDER BY r.fecha_reporte DESC
-        """, (id_usuario,))
+        """, (user_id,))
         reportes = cur.fetchall()
 
-    return render_template("perfil.html", usuario=usuario, avistamientos=avistamientos, reportes=reportes)
+        # ✅ PQRS abiertas para el usuario
+        cur.execute("""
+            SELECT id, tipo, descripcion
+            FROM pqrs
+            WHERE usuario_id = %s AND estado = 'inicio_proceso'
+        """, (user_id,))
+        pqrs_abiertas = cur.fetchall()
+
+    return render_template(
+        "perfil.html",
+        usuario=usuario,
+        avistamientos=avistamientos,
+        reportes=reportes,
+        pqrs_abiertas=pqrs_abiertas
+    )
+
 
 
 @app.route("/moderador/index")
@@ -172,28 +195,264 @@ def moderador_index():
     return render_template("moderador_index.html")
 
 @app.route("/moderador/avistamientos")
-def admin_avistamientos():
-    return render_template("AR_admin.html")
+def AR_admin():
+    if "user_role" in session and session["user_role"] == 3:
+        db = get_db()
+        with db.cursor() as cur:
+            # Obtener reportes
+            cur.execute("""
+                SELECT 
+                    r.id_reporte,
+                    tr.nombre_tipo_reporte,
+                    r.descripcion,
+                    r.fecha_reporte,
+                    r.foto_url,
+                    c.nombre,
+                    ta.nombre_tipo_alerta
+                FROM reportes r
+                JOIN tipos_reportes tr ON r.id_tipo_reporte = tr.id_tipo_reporte
+                JOIN cliente c ON r.id_usuario = c.id_usuario
+                LEFT JOIN alertas a ON r.id_alerta = a.id_alerta
+                LEFT JOIN tipos_alertas ta ON a.id_tipo_alerta = ta.id_tipo_alerta
+            """)
+            reportes = cur.fetchall()
+            # Obtener avistamientos
+            cur.execute("""
+                SELECT 
+                    a.id_avistamiento,
+                    e.nombre_comun,
+                    a.descripcion,
+                    a.fecha_avistamiento,
+                    a.foto_url,
+                    c.nombre,
+                    ta.nombre_tipo_alerta
+                FROM avistamientos a
+                JOIN especies e ON a.id_especie = e.id_especie
+                JOIN cliente c ON a.id_usuario = c.id_usuario
+                LEFT JOIN alertas al ON a.alerta_id = al.id_alerta
+                LEFT JOIN tipos_alertas ta ON al.id_tipo_alerta = ta.id_tipo_alerta
+            """)
+            avistamientos = cur.fetchall()
+        print("Reportes:", reportes)
+        print("Avistamientos:", avistamientos)
+        return render_template("AR_admin.html", reportes=reportes, avistamientos=avistamientos)
+    return redirect(url_for("login_page"))
 
 @app.route("/moderador/noticias")
 def admin_noticias():
     return render_template("noticias_pub.html")
 
 @app.route("/moderador/usuarios")
-def admin_usuarios():
-    return render_template("users_dash.html")
+def gestionar_usuarios():
+    if "user_role" in session and session["user_role"] == 3:
+        db = get_db()
+        with db.cursor() as cur:
+            cur.execute("SELECT id_usuario, nombre, correo, rol, activo FROM cliente")
+            usuarios = cur.fetchall()
+
+            cur.execute("""
+                SELECT e.id_empleado, e.nombre, e.correo, r.nombre_rol, e.activo
+                FROM empleados e
+                JOIN roles r ON e.id_rol = r.id_rol
+            """)
+            empleados = cur.fetchall()
+
+            cur.execute("""
+                SELECT id_ong, nombre_ong, contacto_ong, email_ong, activo FROM ong
+            """)
+            ongs = cur.fetchall()
+
+        return render_template("users_dash.html", usuarios=usuarios, empleados=empleados, ongs=ongs)
+    return redirect(url_for("login_page"))
+
+
+
+
+@app.route("/eliminar_usuario/<int:id_usuario>", methods=["POST"])
+def eliminar_usuario(id_usuario):
+    if "user_role" in session and session["user_role"] == 3:
+        db = get_db()
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM reportes WHERE id_usuario = %s", (id_usuario,))
+            cur.execute("DELETE FROM avistamientos WHERE id_usuario = %s", (id_usuario,))
+            cur.execute("DELETE FROM cliente WHERE id_usuario = %s", (id_usuario,))
+            db.commit()
+        return redirect(url_for("gestionar_usuarios"))
+    return redirect(url_for("login_page"))
+
+@app.route("/eliminar_empleado/<int:id_empleado>", methods=["POST"])
+def eliminar_empleado(id_empleado):
+    if "user_role" in session and session["user_role"] == 3:
+        db = get_db()
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM empleados WHERE id_empleado = %s", (id_empleado,))
+            db.commit()
+        return redirect(url_for("gestionar_usuarios"))
+    return redirect(url_for("login_page"))
+
+@app.route("/eliminar_ong/<int:id_ong>", methods=["POST"])
+def eliminar_ong(id_ong):
+    if "user_role" in session and session["user_role"] == 3:
+        db = get_db()
+        with db.cursor() as cur:
+            cur.execute("DELETE FROM ong WHERE id_ong = %s", (id_ong,))
+            db.commit()
+        return redirect(url_for("gestionar_usuarios"))
+    return redirect(url_for("login_page"))
+
+
+@app.route("/suspender_usuario/<int:id_usuario>", methods=["POST"])
+def suspender_usuario(id_usuario):
+    if "user_role" in session and session["user_role"] == 3:
+        db = get_db()
+        with db.cursor() as cur:
+            # Obtener estado actual
+            cur.execute("SELECT activo FROM cliente WHERE id_usuario = %s", (id_usuario,))
+            estado = cur.fetchone()
+            if estado is not None:
+                nuevo_estado = not estado[0]  # Invierte: True → False, False → True
+                cur.execute("UPDATE cliente SET activo = %s WHERE id_usuario = %s", (nuevo_estado, id_usuario))
+                db.commit()
+        return redirect(url_for("gestionar_usuarios"))
+    return redirect(url_for("login_page"))
+
+@app.route("/suspender_empleado/<int:id_empleado>", methods=["POST"])
+def suspender_empleado(id_empleado):
+    if "user_role" in session and session["user_role"] == 3:
+        db = get_db()
+        with db.cursor() as cur:
+            cur.execute("SELECT activo FROM empleados WHERE id_empleado = %s", (id_empleado,))
+            estado = cur.fetchone()
+            if estado is not None:
+                nuevo_estado = not estado[0]
+                cur.execute("UPDATE empleados SET activo = %s WHERE id_empleado = %s", (nuevo_estado, id_empleado))
+                db.commit()
+        return redirect(url_for("gestionar_usuarios"))
+    return redirect(url_for("login_page"))
+
+@app.route("/suspender_ong/<int:id_ong>", methods=["POST"])
+def suspender_ong(id_ong):
+    if "user_role" in session and session["user_role"] == 3:
+        db = get_db()
+        with db.cursor() as cur:
+            cur.execute("SELECT activo FROM ong WHERE id_ong = %s", (id_ong,))
+            estado = cur.fetchone()
+            if estado:
+                nuevo_estado = not estado[0]
+                cur.execute("UPDATE ong SET activo = %s WHERE id_ong = %s", (nuevo_estado, id_ong))
+                db.commit()
+        return redirect(url_for("gestionar_usuarios"))
+    return redirect(url_for("login_page"))
+
 
 @app.route("/moderador/pqrs")
-def admin_pqrs():
-    return render_template("pqrs_res.html")
+def dashboard_pqrs():
+    if session.get("user_role") != 3:  # Suponiendo 2 = empleado
+        return redirect(url_for("login_page"))
+
+    empleado_id = session["user_id"]
+    db = get_db()
+    with db.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+        cur.execute("""
+            SELECT p.id, p.tipo, p.descripcion, p.estado
+            FROM pqrs p
+            JOIN incidencias i ON p.id = i.id_pqrs
+            WHERE i.id_empleado = %s
+        """, (empleado_id,))
+        pqrs_list = cur.fetchall()
+
+    return render_template("pqrs_res.html", pqrs_list=pqrs_list)
 
 
 
 @app.route("/ong")
 def ong_dashboard():
-    if "user_role" in session and session["user_role"] == 4:
-        return "Bienvenido al panel de ONG"
-    return redirect(url_for("login_page"))
+    if session.get("user_role") != 4:  # Supongamos que 4 es ONG
+        return redirect(url_for("login_page"))
+
+    tipo_especie = request.args.get("tipo_especie")
+    ubicacion = request.args.get("ubicacion")
+    fecha = request.args.get("fecha")
+
+    db = get_db()
+    with db.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+        # 🔧 Obtener tipos para filtros
+        cur.execute("SELECT id_tipo_especie, nombre_tipo_especie FROM tipos_especies")
+        tipos_especies = cur.fetchall()
+
+        # 🔧 Adaptar consulta para usar reportes y nombre_tipo_alerta como estado
+        base_query = """
+                SELECT 
+                    r.id_reporte,
+                    r.descripcion,
+                    r.foto_url,
+                    r.fecha_reporte AS fecha,
+                    tr.nombre_tipo_reporte AS tipo,
+                    r.direccion AS ubicacion,
+                    ta.nombre_tipo_alerta AS estado
+                FROM reportes r
+                JOIN tipos_reportes tr ON r.id_tipo_reporte = tr.id_tipo_reporte
+                LEFT JOIN alertas a ON r.id_alerta = a.id_alerta
+                LEFT JOIN tipos_alertas ta ON a.id_tipo_alerta = ta.id_tipo_alerta
+                WHERE 1=1
+                -- + filtros dinámicos
+
+        """
+        params = []
+
+        if tipo_especie:
+            base_query += " AND tr.id_tipo_reporte = %s"
+            params.append(tipo_especie)
+
+        if ubicacion:
+            base_query += " AND r.direccion ILIKE %s"
+            params.append(f"%{ubicacion}%")
+
+        if fecha:
+            base_query += " AND r.fecha_reporte::date = %s"
+            params.append(fecha)
+
+        base_query += " ORDER BY r.fecha_reporte DESC"
+
+        cur.execute(base_query, tuple(params))
+        reportes = cur.fetchall()
+
+    return render_template("ong_dashboard.html",
+                           reportes=reportes,
+                           tipos_especies=tipos_especies,
+                           filtro_tipo=tipo_especie,
+                           filtro_ubicacion=ubicacion,
+                           filtro_fecha=fecha)
+
+@app.route("/reporte/<int:id_reporte>/tomar", methods=["POST"])
+def ong_tomar_caso(id_reporte):
+    if session.get("user_role") != 4:  # Validar que es una ONG
+        return redirect(url_for("login_page"))
+
+    id_ong = session["user_id"]
+    tipo_alerta = 7  # ONG_tomo_caso
+
+    db = get_db()
+    with db.cursor() as cur:
+        # Insertar la alerta
+        cur.execute("""
+            INSERT INTO alertas (id_tipo_alerta, id_ong)
+            VALUES (%s, %s)
+            RETURNING id_alerta
+        """, (tipo_alerta, id_ong))
+        nueva_alerta = cur.fetchone()[0]
+
+        # Asociar alerta con el reporte
+        cur.execute("""
+            UPDATE reportes
+            SET id_alerta = %s
+            WHERE id_reporte = %s
+        """, (nueva_alerta, id_reporte))
+
+        db.commit()
+
+    return redirect(url_for("ong_dashboard"))
+
 
 @app.route("/admin")
 def admin_dashboard():
@@ -335,31 +594,129 @@ def get_usuarios():
         clientes = cur.fetchall()
     return jsonify(clientes)
 
-@app.route("/pqrs")
-def get_pqrs():
-    db = get_db()
-    with db.cursor() as cur:
-        cur.execute("SELECT * FROM pqrs;")
-        datos = cur.fetchall()
-    return jsonify(datos)
+@app.route("/user/enviar_pqrs", methods=["GET"])
+def debug_get_enviar_pqrs():
+    print("⚠️ Se hizo GET a /user/enviar_pqrs desde algún lugar.")
+    return "Esta ruta solo acepta POST", 405
+
+@app.route("/pqrs_form", methods=["GET"])
+def pqrs_form():
+    if "user_id" not in session:
+        return redirect(url_for("login_page"))
+    return render_template("pqrs_form.html")
 #### METODOS POST ####
 ######tienes que poner los que necesites ahi segun lo que vayas haciendo#######
-@app.route("/pqrs", methods=["POST"])
-def crear_pqrs():
-    data = request.get_json()
-    tipo = data["tipo"]
-    descripcion = data["descripcion"]
-    estado = data["estado"]
-    usuario_id = data["usuario_id"]
+@app.route("/user/enviar_pqrs", methods=["POST", "GET"])
+def enviar_pqrs():
+    if request.method == "GET":
+    # Intercepta cualquier GET no deseado (como los que causan 405)
+        return redirect(url_for("pqrs_form"))
+    if "user_id" not in session:
+        return redirect(url_for("login_page"))
+
+    tipo = request.form.get("tipo")
+    descripcion = request.form.get("descripcion")
+    ubicacion = request.form.get("ubicacion")
+    usuario_id = session["user_id"]
+    estado = "recibido"
+
+    archivo = request.files.get("url_img")
+    filename = None
+
+    # Guardar imagen si existe
+    if archivo and archivo.filename:
+        filename = secure_filename(f"{uuid.uuid4().hex}_{archivo.filename}")
+        ruta = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+        archivo.save(ruta)
+
+    # Generar ID único
+    id_pqrs = str(uuid.uuid4())
+
+    db = get_db()
+    with db.cursor() as cur:
+        # 1. Insertar en tabla pqrs
+        cur.execute("""
+            INSERT INTO pqrs (id, tipo, descripcion, estado, usuario_id)
+            VALUES (%s, %s, %s, %s, %s)
+        """, (id_pqrs, tipo, descripcion, estado, usuario_id))
+
+        # 2. Insertar en tabla incidencias (si hay imagen o ubicación)
+        if filename or ubicacion:
+            cur.execute("""
+                INSERT INTO incidencias (url_img, id_usuario, id_pqrs, ubicacion)
+                VALUES (%s, %s, %s, %s)
+            """, (filename, usuario_id, id_pqrs, ubicacion))
+
+        db.commit()
+
+    return redirect(url_for("pqrs_form"))  # o donde desees redirigir
+
+@app.route("/asignar_empleado/<id_pqrs>", methods=["POST"])
+def asignar_empleado(id_pqrs):
+    empleado_id = session["user_id"]
+    db = get_db()
+    with db.cursor() as cur:
+        cur.execute("UPDATE pqrs SET estado = 'inicio_proceso' WHERE id = %s", (id_pqrs,))
+        cur.execute("UPDATE incidencias SET id_empleado = %s WHERE id_pqrs = %s", (empleado_id, id_pqrs))
+        db.commit()
+    return redirect(url_for("dashboard_pqrs"))
+
+@app.route("/marcar_resuelto/<id_pqrs>", methods=["POST"])
+def marcar_resuelto(id_pqrs):
+    db = get_db()
+    with db.cursor() as cur:
+        cur.execute("UPDATE pqrs SET estado = 'resuelto' WHERE id = %s", (id_pqrs,))
+        db.commit()
+    return redirect(url_for("dashboard_pqrs"))
+
+
+    
+@app.route("/pqrs/<id_pqrs>/chat")
+def chat_pqrs(id_pqrs):
+    db = get_db()
+    with db.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+        # Verifica que el usuario esté autorizado (empleado o dueño de la PQRS)
+        cur.execute("SELECT usuario_id FROM pqrs WHERE id = %s", (id_pqrs,))
+        dueño = cur.fetchone()
+        if not dueño:
+            return "PQRS no encontrada", 404
+
+        if session["user_type"] == "cliente" and session["user_id"] != dueño["usuario_id"]:
+            return "No autorizado", 403
+
+        cur.execute("""
+            SELECT emisor, mensaje, imagen_url, fecha
+            FROM chat_pqrs
+            WHERE id_pqrs = %s ORDER BY fecha ASC
+        """, (id_pqrs,))
+        mensajes = cur.fetchall()
+
+    return render_template("chat_pqrs.html", mensajes=mensajes, id_pqrs=id_pqrs)
+
+
+@app.route("/pqrs/<id_pqrs>/enviar_mensaje", methods=["POST"])
+def enviar_mensaje(id_pqrs):
+    emisor = session.get("user_type")
+    mensaje = request.form.get("mensaje")
+    archivo = request.files.get("imagen")
+    filename = None
+
+    if archivo and archivo.filename:
+        filename = secure_filename(f"{uuid.uuid4().hex}_{archivo.filename}")
+        archivo.save(os.path.join(app.config["UPLOAD_FOLDER"], filename))
 
     db = get_db()
     with db.cursor() as cur:
         cur.execute("""
-            INSERT INTO pqrs (tipo, descripcion, estado, usuario_id)
+            INSERT INTO chat_pqrs (id_pqrs, emisor, mensaje, imagen_url)
             VALUES (%s, %s, %s, %s)
-        """, (tipo, descripcion, estado, usuario_id))
+        """, (id_pqrs, emisor, mensaje, filename))
         db.commit()
-    return jsonify({"mensaje": "PQRS creada con éxito"}), 201
+
+    return redirect(url_for('chat_pqrs', id_pqrs=id_pqrs))
+
+
+
 
 @app.route("/user/reportar", methods=["GET", "POST"])
 def reportar():
@@ -395,7 +752,7 @@ def reportar():
                     "page-contact-us.html",
                     msg="Tipo de archivo no permitido. Solo PNG o JPG.",
                     tipos_reporte=tipos_reporte
-                )
+                    )
 
         try:
             with db.cursor() as cur:
@@ -483,9 +840,11 @@ def biologo_dashboard():
                 LEFT JOIN tipos_alertas ta ON al.id_tipo_alerta = ta.id_tipo_alerta
             """)
             avistamientos = cur.fetchall()
-
+        print("Reportes:", reportes)
+        print("Avistamientos:", avistamientos)
         return render_template("biologo_dashboard.html", reportes=reportes, avistamientos=avistamientos)
     return redirect(url_for("login_page"))
+
 
 
 
@@ -754,7 +1113,6 @@ def validar_avistamiento(id_avistamiento, accion):
     except Exception as e:
         db.rollback()
         return f"Error al validar avistamiento: {e}", 500
-
     return redirect(url_for("biologo_dashboard"))
 
 @app.route("/mis_avistamientos_aprobados")
@@ -765,25 +1123,40 @@ def mis_avistamientos_aprobados():
     db = get_db()
     id_usuario = session["user_id"]
 
+    tipo2 = request.args.get("tipo2")  # 'Flora' o 'Fauna'
+    id_tipo_especie = request.args.get("id_tipo_especie")  # 1, 2 o 3
+
+    query = """
+        SELECT 
+            a.descripcion,
+            a.ubicacion,
+            a.latitud,
+            a.longitud,
+            e.nombre_comun,
+            a.foto_url,
+            a.fecha_avistamiento
+        FROM avistamientos a
+        JOIN especies e ON a.id_especie = e.id_especie
+        LEFT JOIN alertas al ON a.alerta_id = al.id_alerta
+        LEFT JOIN tipos_alertas ta ON al.id_tipo_alerta = ta.id_tipo_alerta
+        WHERE a.id_usuario = %s AND ta.nombre_tipo_alerta = 'aprovado_avistamiento'
+    """
+    params = [id_usuario]
+
+    if tipo2:
+        query += " AND e.tipo2 = %s"
+        params.append(tipo2)
+
+    if id_tipo_especie:
+        query += " AND e.id_tipo_especie = %s"
+        params.append(id_tipo_especie)
+
     with db.cursor() as cur:
-        cur.execute("""
-            SELECT 
-                a.descripcion,
-                a.ubicacion,
-                a.latitud,
-                a.longitud,
-                e.nombre_comun,
-                a.foto_url,
-                a.fecha_avistamiento
-            FROM avistamientos a
-            JOIN especies e ON a.id_especie = e.id_especie
-            LEFT JOIN alertas al ON a.alerta_id = al.id_alerta
-            LEFT JOIN tipos_alertas ta ON al.id_tipo_alerta = ta.id_tipo_alerta
-            WHERE a.id_usuario = %s AND ta.nombre_tipo_alerta = 'aprovado_avistamiento'
-        """, (id_usuario,))
+        cur.execute(query, params)
         avistamientos = cur.fetchall()
 
     return render_template("mis_avistamientos.html", avistamientos=avistamientos)
+
 
 def generate_secure_password(length=8):
     # Asegurar que incluye al menos uno de cada tipo
@@ -795,7 +1168,7 @@ def generate_secure_password(length=8):
     # Generar el resto de caracteres aleatorios
     remaining_length = length - 4  # restar los 4 caracteres ya seleccionados
     all_chars = string.ascii_letters + string.digits + "!@#$%^&*()-_=+[]{}|;:,.<>?"
-    remaining_chars = ''.join(random.choice(all_chars) for _ in range(remaining_length))
+    remaining_chars = ''.join(random.choice(all_chars) for _ in remaining_length)
     
     # Combinar y mezclar todos los caracteres
     password_chars = lowercase + uppercase + digits + special + remaining_chars
@@ -924,6 +1297,127 @@ def recuperar_password():
             return render_template("recuperar_password.html", msg=msg)
     return render_template("recuperar_password.html", msg=msg)
     
+
+@app.route('/guardar_noticia', methods=['POST'])
+def guardar_noticia():
+    try:
+        titulo = request.form.get('titulo')
+        contenido = request.form.get('contenido')
+        categoria = request.form.get('categoria')
+        estado = request.form.get('estado', 'borrador')
+        fecha_publicacion = request.form.get('fecha_publicacion')
+        id_region = request.form.get('id_region')  # si lo añades al formulario
+
+        if fecha_publicacion:
+            try:
+                fecha_obj = datetime.strptime(fecha_publicacion, '%d/%m/%Y')
+                fecha_publicacion = fecha_obj.strftime('%Y-%m-%d')
+            except ValueError:
+                fecha_publicacion = datetime.now().strftime('%Y-%m-%d')
+        else:
+            fecha_publicacion = datetime.now().strftime('%Y-%m-%d')
+
+        db = get_db()
+        cursor = db.cursor()
+
+        # Insertar en tags (si no existe)
+        cursor.execute("SELECT id_tags FROM tags WHERE nombre_tag = %s", (categoria,))
+        tag = cursor.fetchone()
+        if tag:
+            id_tag = tag[0]
+        else:
+            cursor.execute("INSERT INTO tags (nombre_tag) VALUES (%s) RETURNING id_tags", (categoria,))
+            id_tag = cursor.fetchone()[0]
+
+        # Insertar en noticias_ambientales
+        cursor.execute("""
+            INSERT INTO noticias_ambientales (id_tags, id_fuentes, contenido, titulo, id_region)
+            VALUES (%s, NULL, %s, %s, %s) RETURNING id_noticia
+        """, (id_tag, contenido, titulo, id_region))
+        id_noticia = cursor.fetchone()[0]
+
+        # Insertar fuentes
+        enlaces = request.form.getlist('enlaces[]')
+        for enlace in enlaces:
+            if enlace.strip():
+                cursor.execute("""
+                    INSERT INTO fuentes (link_fuente, tipo_fuente, titulo_fuente, fecha_fuente)
+                    VALUES (%s, %s, %s, %s) RETURNING id_fuentes
+                """, (enlace, 'enlace', titulo, fecha_publicacion))
+                id_fuente = cursor.fetchone()[0]
+
+                # Actualizar la noticia con la fuente (si solo manejas una)
+                cursor.execute("UPDATE noticias_ambientales SET id_fuentes = %s WHERE id_noticia = %s", (id_fuente, id_noticia))
+
+        db.commit()
+        cursor.close()
+        db.close()
+
+        return jsonify({'success': True, 'message': 'Noticia guardada correctamente', 'id_noticia': id_noticia})
+
+    except Exception as e:
+        print(f"❌ Error: {str(e)}")
+        return jsonify({'success': False, 'message': f'Error al guardar noticia: {str(e)}'})
+
+@app.route("/feed_noticias")
+def feed_noticias():
+    db = get_db()
+    with db.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+        cur.execute("""
+            SELECT 
+                n.id_noticia,
+                n.titulo,
+                n.contenido,
+                n.fecha_publicacion,
+                t.nombre_tag AS categoria,
+                r.nombre_region,
+                f.link_fuente,
+                m.ruta AS imagen
+            FROM noticias_ambientales n
+            LEFT JOIN tags t ON n.id_tags = t.id_tags
+            LEFT JOIN regiones r ON n.id_region = r.id_region
+            LEFT JOIN fuentes f ON n.id_fuentes = f.id_fuentes
+            LEFT JOIN noticia_media nm ON n.id_noticia = nm.id_noticia
+            LEFT JOIN media m ON nm.id_media = m.id_media
+            ORDER BY n.fecha_publicacion DESC
+        """)
+        noticias = cur.fetchall()
+
+    return render_template("feed_noticias.html", noticias=noticias)
+
+@app.route("/noticias")
+def ver_noticias():
+    db = get_db()
+    with db.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+        cur.execute("""
+            SELECT n.titulo, n.contenido, r.nombre_region, f.link_fuente, f.titulo_fuente
+            FROM noticias_ambientales n
+            LEFT JOIN regiones r ON n.id_region = r.id_region
+            LEFT JOIN fuentes f ON n.id_fuentes = f.id_fuentes
+            ORDER BY n.id_noticia DESC
+        """)
+        noticias = cur.fetchall()
+
+    return render_template("noticias_feed.html", noticias=noticias)
+
+
+@app.route("/eliminar_reporte/<int:id_reporte>", methods=["POST"])
+def eliminar_reporte(id_reporte):
+    db = get_db()
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM reportes WHERE id_reporte = %s", (id_reporte,))
+        db.commit()
+    return redirect(url_for('AR_admin'))  # o donde se cargue el HTML AR_admin.html
+
+
+@app.route("/eliminar_avistamiento/<int:id_avistamiento>", methods=["POST"])
+def eliminar_avistamiento(id_avistamiento):
+    db = get_db()
+    with db.cursor() as cur:
+        cur.execute("DELETE FROM avistamientos WHERE id_avistamiento = %s", (id_avistamiento,))
+        db.commit()
+    return redirect(url_for('AR_admin'))  # misma vista
+
 
 @app.teardown_appcontext
 def teardown(exception):

@@ -11,9 +11,6 @@
 
   <header class="header-2">
     <div class="page-header section-height-75 relative" style="background-image: url('/static/assets/img/curved-images/curved.jpg')">
-      <div class="container mt-4 text-end">
-        <a href="{{ url_for('perfil_usuario') }}" class="btn btn-primary btn-sm">Mi Perfil</a>
-      </div>
       <div class="container">
         <div class="row">
           <div class="col-lg-7 text-center mx-auto">
@@ -193,6 +190,19 @@
         </div>
       </div>
     </div>
+    <div class="row mt-4">
+  <div class="col-md-12">
+    <div class="card card-background card-background-mask-primary tilt" data-tilt>
+      <div class="full-background" style="background-image: url('https://images.unsplash.com/photo-1609780010616-7c1d25b7f6c1?ixlib=rb-4.0.3&auto=format&fit=crop&w=1470&q=80')"></div>
+      <div class="card-body text-center py-5">
+        <h3 class="text-white mb-3">Explora Noticias Ambientales</h3>
+        <p class="text-white">Conoce más sobre el impacto ecológico, alertas y buenas prácticas ambientales en Colombia.</p>
+        <a href="{{ url_for('ver_noticias') }}" class="btn btn-outline-white btn-round mt-3">Ir al Feed</a>
+      </div>
+    </div>
+  </div>
+</div>
+
   </section>
 
 {% endblock content %}

@@ -1,18 +1,51 @@
 {% extends 'layouts/base.html' %}
 
-{% block title %} Avistamientos De Especies {% endblock title %}
-
-<!-- Specific CSS goes HERE -->
-{% block stylesheets %}
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-{% endblock stylesheets %}
-
-{% block body_class %} contact-us {% endblock body_class %}
-
 {% block content %}
+<div class="container mt-5">
+  <h2 class="mb-4">PQRS Asignadas</h2>
 
-  {% include "includes/navigation-light.html" %}
-
-<body>Aqui va el dashboard para PQRs</body>
-
-{% endblock content %}
+  <table class="table table-striped table-bordered text-center align-middle">
+    <thead class="table-dark">
+      <tr>
+        <th>ID PQRS</th>
+        <th>Tipo</th>
+        <th>Descripción</th>
+        <th>Estado</th>
+        <th>Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for pqrs in pqrs_list %}
+      <tr>
+        <td>{{ pqrs.id }}</td>
+        <td>{{ pqrs.tipo }}</td>
+        <td>{{ pqrs.descripcion }}</td>
+        <td>
+          {% if pqrs.estado == 'recibido' %}
+            <span class="badge bg-secondary">Recibido</span>
+          {% elif pqrs.estado == 'inicio_proceso' %}
+            <span class="badge bg-warning text-dark">En Proceso</span>
+          {% elif pqrs.estado == 'resuelto' %}
+            <span class="badge bg-success">Resuelto</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if pqrs.estado == 'recibido' %}
+          <form action="{{ url_for('asignar_empleado', id_pqrs=pqrs.id) }}" method="POST" style="display:inline;">
+            <button type="submit" class="btn btn-primary btn-sm">Resolver</button>
+          </form>
+          {% elif pqrs.estado == 'inicio_proceso' %}
+          <form action="{{ url_for('marcar_resuelto', id_pqrs=pqrs.id) }}" method="POST" style="display:inline;">
+            <button type="submit" class="btn btn-success btn-sm">Marcar como Resuelto</button>
+          </form>
+          <a href="{{ url_for('chat_pqrs', id_pqrs=pqrs.id) }}" class="btn btn-outline-secondary btn-sm">Abrir Chat</a>
+          {% else %}
+            <em>No disponible</em>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

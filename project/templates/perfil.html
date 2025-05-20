@@ -7,7 +7,9 @@
   <div class="card mb-4">
     <div class="card-body">
       <p><strong>Nombre:</strong> {{ usuario[0] }}</p>
+      <p><strong>Apellido:</strong> {{ usuario[2] }}</p>
       <p><strong>Correo:</strong> {{ usuario[1] }}</p>
+
     </div>
   </div>
 
@@ -47,6 +49,20 @@
           {% else %}
             <span class="badge bg-secondary">Sin estado</span>
           {% endif %}
+
+          {% if pqrs_abiertas %}
+          <div class="alert alert-info">
+            <h5 class="alert-heading">PQRS abiertas</h5>
+            <ul class="mb-0">
+              {% for pqrs in pqrs_abiertas %}
+              <li>
+                Tu PQRS (ID: <strong>{{ pqrs[0] }}</strong>) de tipo <strong>{{ pqrs[1] }}</strong> está en proceso.
+                <a href="{{ url_for('chat_pqrs', id_pqrs=pqrs[0]) }}" class="btn btn-sm btn-outline-primary ms-2">Ir al Chat</a>
+              </li>
+              {% endfor %}
+            </ul>
+          </div>
+        {% endif %}
         </small>
       </li>
       {% endfor %}

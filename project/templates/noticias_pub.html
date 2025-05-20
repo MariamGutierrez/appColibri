@@ -1,9 +1,10 @@
 {% extends 'layouts/base.html' %}
 
-{% block title %} Caso de Maltrato {% endblock title %}
+{% block title %} Gestión de Noticias {% endblock title %}
 
 {% block stylesheets %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 {% endblock stylesheets %}
 
 {% block body_class %} contact-us {% endblock body_class %}
@@ -20,48 +21,125 @@
       <div class="container">
         <div class="row">
           <div class="col-lg-7 d-flex justify-content-center flex-column">
-            <div class="card d-flex blur justify-content-center p-4 shadow-lg my-sm-0 my-sm-6 mt-8 mb-5">
-              <div class="text-center">
-                <h3 class="text-gradient text-primary">Base para publicacion de noticias</h3>
+            <div class="card d-flex blur justify-content-center p-4 shadow-lg my-sm-0 my-sm-6 mt-8 mb-5">              <div class="text-center">
+                <h3 class="text-gradient text-primary">Gestión de Noticias</h3>
                 <p class="mb-0">
-                  Este formulario es una plantilla base sin funcionalidad. Úsalo como guía para implementar las publicaciones.
+                  Sección exclusiva para administradores autorizados
                 </p>
               </div>
 
-              <!-- Formulario sin acción ni método -->
-              <form id="report-form" autocomplete="off" enctype="multipart/form-data">
+              <!-- Formulario para gestión de noticias -->
+              <form id="news-form" action="/guardar_noticia" method="POST" enctype="multipart/form-data">
                 <div class="card-body pb-2">
-                  <div class="row">
-                    <div class="col-md-6">
-                      <label for="id_tipo_reporte">Tipo de Reporte</label>
-                      <select name="id_tipo_reporte" id="id_tipo_reporte" class="form-control" disabled>
-                        <option>Seleccione un tipo de reporte</option>
-                      </select>
-                    </div>
-                    <div class="col-md-6 ps-md-2">
-                      <label for="foto">Foto del Reporte</label>
-                      <input type="file" name="fotos" id="fotos" class="form-control" accept="image/png, image/jpeg" multiple disabled>
-                      <div class="mt-3 text-center">
-                        <div id="previewImages" class="mt-3 text-center d-flex flex-wrap gap-3 justify-content-center"></div>                      
-                      </div>                    
-                    </div>
+                  <!-- Título de la noticia -->
+                  <div class="form-group">
+                    <label for="titulo">1. Título de la Noticia <span class="text-danger">*</span></label>
+                    <input type="text" name="titulo" id="titulo" class="form-control" placeholder="Ingrese el título de la noticia" required>
                   </div>
 
+                  <!-- Descripción breve -->
                   <div class="form-group mt-4">
-                    <label for="descripcion">Descripción</label>
-                    <textarea name="descripcion" id="descripcion" class="form-control" rows="6" placeholder="Describe el problema" disabled></textarea>
+                    <label for="descripcion_breve">2. Descripción Breve</label>
+                    <input type="text" name="descripcion_breve" id="descripcion_breve" class="form-control" placeholder="Resumen conciso del contenido de la noticia">
                   </div>
 
+                  <!-- Contenido detallado -->
                   <div class="form-group mt-4">
-                    <label for="direccion">Dirección</label>
-                    <input type="text" name="direccion" id="direccion" class="form-control" placeholder="Dirección" disabled>
+                    <label for="contenido">3. Contenido Detallado</label>
+                    <textarea name="contenido" id="contenido" class="form-control" rows="6" placeholder="Incluye toda la información relevante, datos, contexto y desarrollo de la noticia"></textarea>
                   </div>
 
-                  <div id="map" style="height: 300px; border-radius: 12px;" class="mt-3"></div>                  
+                  <!-- Imágenes adjuntas -->
+                  <div class="form-group mt-4">
+                    <label>4. Imágenes Adjuntas</label>
+                    <div class="image-upload-container">
+                      <div class="image-upload-item mb-2">
+                        <input type="file" name="imagenes[]" class="form-control" accept="image/jpeg, image/png, image/webp">
+                      </div>
+                      <div id="image-upload-placeholder"></div>
+                      <button type="button" id="add-image" class="btn btn-sm btn-outline-primary mt-2">+ Añadir otra imagen</button>
+                    </div>
+                    <div id="previewImages" class="mt-3 d-flex flex-wrap gap-3 justify-content-start"></div>
+                  </div>
 
-                  <div class="row">
+                  <!-- Enlaces externos -->
+                  <div class="form-group mt-4">
+                    <label>5. Enlaces Externos (opcional)</label>
+                    <div class="link-container">
+                      <div class="link-item mb-2">
+                        <input type="url" name="enlaces[]" class="form-control" placeholder="https://...">
+                      </div>
+                      <div id="link-placeholder"></div>
+                      <button type="button" id="add-link" class="btn btn-sm btn-outline-primary mt-2">+ Añadir otro enlace</button>
+                    </div>
+                  </div>
+
+                  <!-- Categoría de la noticia -->
+                  <div class="form-group mt-4">
+                    <label>6. Categoría de la Noticia</label>
+                    <div>
+                      <div class="form-check">
+                        <input class="form-check-input" type="radio" name="categoria" id="cat_conservacion" value="Conservación">
+                        <label class="form-check-label" for="cat_conservacion">Conservación</label>
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input" type="radio" name="categoria" id="cat_alertas" value="Alertas Ambientales">
+                        <label class="form-check-label" for="cat_alertas">Alertas Ambientales</label>
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input" type="radio" name="categoria" id="cat_eventos" value="Eventos Educativos">
+                        <label class="form-check-label" for="cat_eventos">Eventos Educativos</label>
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input" type="radio" name="categoria" id="cat_comunidad" value="Comunidad y Participación">
+                        <label class="form-check-label" for="cat_comunidad">Comunidad y Participación</label>
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input" type="radio" name="categoria" id="cat_otros" value="Otros">
+                        <label class="form-check-label" for="cat_otros">Otros:</label>
+                        <input type="text" name="categoria_otros" id="categoria_otros" class="form-control mt-1" placeholder="Especifique otra categoría" disabled>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Fecha de publicación -->
+                  <div class="form-group mt-4">
+                    <label for="fecha_publicacion">7. Fecha de Publicación</label>
+                    <input type="text" name="fecha_publicacion" id="fecha_publicacion" class="form-control datepicker" placeholder="dd/mm/aaaa">
+                  </div>
+
+                  <!-- Estado de publicación -->
+                  <div class="form-group mt-4">
+                    <label>8. Estado de Publicación</label>
+                    <div>
+                      <div class="form-check">
+                        <input class="form-check-input" type="radio" name="estado" id="estado_borrador" value="borrador" checked>
+                        <label class="form-check-label" for="estado_borrador">Borrador</label>
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input" type="radio" name="estado" id="estado_publicada" value="publicada">
+                        <label class="form-check-label" for="estado_publicada">Publicada</label>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Región -->
+                  <div class="form-group mt-4">
+                    <label for="id_region">9. Región Asociada</label>
+                    <select name="id_region" id="id_region" class="form-control">
+                      <option value="">Seleccionar región...</option>
+                      <option value="1">Andina</option>
+                      <option value="2">Caribe</option>
+                      <option value="3">Pacífica</option>
+                      <option value="4">Orinoquía</option>
+                      <option value="5">Amazonía</option>
+                    </select>
+                  </div>
+                  <!-- Botones de acción -->
+                  <div class="row mt-4">
                     <div class="col-md-12 text-center">
-                      <button type="button" class="btn bg-gradient-secondary mt-3 mb-0" disabled>Formulario de ejemplo</button>
+                      <button type="button" class="btn btn-secondary me-2">Cancelar</button>
+                      <button type="submit" class="btn bg-gradient-primary">Guardar Noticia</button>
                     </div>
                   </div>
 
@@ -79,40 +157,119 @@
 
 {% block javascripts %}
 <script src="/static/assets/js/soft-design-system.min.js?v=1.0.1"></script>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 
 <script>
-  const bounds = L.latLngBounds([4.5, -74.3], [4.9, -73.9]);
-  const map = L.map('map', {
-    maxBounds: bounds,
-    maxBoundsViscosity: 1.0
-  }).setView([4.7110, -74.0721], 12);
+  // Inicializar el selector de fecha
+  flatpickr(".datepicker", {
+    dateFormat: "d/m/Y",
+    locale: {
+      firstDayOfWeek: 1,
+      weekdays: {
+        shorthand: ['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa'],
+        longhand: ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
+      },
+      months: {
+        shorthand: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'],
+        longhand: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+      }
+    }
+  });
 
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '&copy; OpenStreetMap contributors'
-  }).addTo(map);
+  // Habilitar/deshabilitar el campo de categoría otros
+  document.querySelectorAll('input[name="categoria"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+      const otrosCampo = document.getElementById('categoria_otros');
+      otrosCampo.disabled = this.id !== 'cat_otros';
+      if (this.id === 'cat_otros') {
+        otrosCampo.focus();
+      }
+    });
+  });
 
-  let marker;
+  // Agregar campos de imágenes adicionales
+  document.getElementById('add-image').addEventListener('click', function() {
+    const newImageInput = document.createElement('div');
+    newImageInput.className = 'image-upload-item mb-2';
+    newImageInput.innerHTML = `
+      <input type="file" name="imagenes[]" class="form-control" accept="image/jpeg, image/png, image/webp">
+      <button type="button" class="btn btn-sm btn-outline-danger mt-1 remove-image">Eliminar</button>
+    `;
+    document.getElementById('image-upload-placeholder').appendChild(newImageInput);
+    
+    // Agregar evento para eliminar la imagen
+    newImageInput.querySelector('.remove-image').addEventListener('click', function() {
+      this.parentElement.remove();
+    });
+  });
 
-  map.on('click', function (e) {
-    const lat = e.latlng.lat;
-    const lon = e.latlng.lng;
+  // Agregar campos de enlaces adicionales
+  document.getElementById('add-link').addEventListener('click', function() {
+    const newLinkInput = document.createElement('div');
+    newLinkInput.className = 'link-item mb-2';
+    newLinkInput.innerHTML = `
+      <input type="url" name="enlaces[]" class="form-control" placeholder="https://...">
+      <button type="button" class="btn btn-sm btn-outline-danger mt-1 remove-link">Eliminar</button>
+    `;
+    document.getElementById('link-placeholder').appendChild(newLinkInput);
+    
+    // Agregar evento para eliminar el enlace
+    newLinkInput.querySelector('.remove-link').addEventListener('click', function() {
+      this.parentElement.remove();
+    });
+  });
 
-    const reverseUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`;
-
-    fetch(reverseUrl)
-      .then(response => response.json())
-      .then(data => {
-        const displayName = data.display_name;
-        if (marker) {
-          map.removeLayer(marker);
+  // Previsualización de imágenes
+  document.querySelector('.image-upload-container').addEventListener('change', function(e) {
+    if (e.target.type === 'file') {
+      const previewContainer = document.getElementById('previewImages');
+      const files = e.target.files;
+      
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (!file.type.match('image.*')) continue;
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const imgContainer = document.createElement('div');
+          imgContainer.className = 'preview-item';
+          imgContainer.innerHTML = `
+            <img src="${e.target.result}" alt="Imagen previa" style="max-width: 150px; max-height: 150px; object-fit: cover; border-radius: 8px;">
+          `;
+          previewContainer.appendChild(imgContainer);
         }
-        marker = L.marker([lat, lon]).addTo(map).bindPopup(displayName).openPopup();
-      })
-      .catch(error => {
-        console.error("Error al obtener dirección inversa:", error);
-      });
+        reader.readAsDataURL(file);
+      }
+    }
+  });
+
+  // Manejar el envío del formulario
+  document.getElementById('news-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    // Recopilar datos del formulario
+    const formData = new FormData(this);
+    
+    // Aquí puedes agregar la lógica para enviar los datos al servidor
+    // Por ejemplo, usando fetch API:
+    
+    fetch('/guardar_noticia', {
+      method: 'POST',
+      body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        alert('Noticia guardada correctamente');
+        // Redirigir o limpiar el formulario
+      } else {
+        alert('Error al guardar la noticia: ' + data.message);
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      alert('Ocurrió un error al procesar la solicitud');
+    });
   });
 </script>
 {% endblock javascripts %}

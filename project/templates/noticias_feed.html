@@ -1,0 +1,25 @@
+<!-- templates/noticias_feed.html -->
+{% extends "layouts/base.html" %}
+{% block content %} 
+<div class="container mt-5">
+  <h2>Noticias Ambientales</h2>
+  <div class="row">
+    {% for noticia in noticias %}
+      <div class="col-md-6 mb-4">
+        <div class="card h-100 shadow">
+          <div class="card-body">
+            <h5 class="card-title">{{ noticia.titulo }}</h5>
+            <p class="card-text">{{ noticia.contenido[:200] }}...</p>
+            <p class="text-muted"><small>Fuente: {{ noticia.titulo_fuente or 'N/A' }}</small></p>
+            <p><small>Región: {{ noticia.nombre_region or 'No especificada' }}</small></p>
+            {% if noticia.link_fuente %}
+              <a href="{{ noticia.link_fuente }}" class="btn btn-sm btn-outline-primary" target="_blank">Leer más</a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
+

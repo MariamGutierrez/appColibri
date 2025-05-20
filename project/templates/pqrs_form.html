@@ -1,0 +1,181 @@
+{% extends 'layouts/base.html' %}
+
+{% block title %} Caso de Maltrato {% endblock title %}
+
+<!-- Specific CSS goes HERE -->
+{% block stylesheets %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+{% endblock stylesheets %}
+
+{% block body_class %} contact-us {% endblock body_class %}
+
+{% block content %}
+
+  {% include "includes/navigation-light.html" %}
+
+  <header>
+    <div class="page-header section-height-85">
+      <div>
+        <img class="position-absolute fixed-top ms-auto w-50 h-100 z-index-0 d-none d-sm-none d-md-block border-radius-section border-top-end-radius-0 border-top-start-radius-0 border-bottom-end-radius-0" src="/static/assets/img/curved-images/curved8.jpg">
+      </div>
+      <div class="container">
+        <div class="row">
+          <div class="col-lg-7 d-flex justify-content-center flex-column">
+            <div class="card d-flex blur justify-content-center p-4 shadow-lg my-sm-0 my-sm-6 mt-8 mb-5">
+              <div class="text-center">
+                <h3 class="text-gradient text-primary">Reportar Casos de Maltrato Animal</h3>
+                <p class="mb-0">
+                  ¿Has encontrado un problema o situación que afecta a animales en su localidad? Por favor, llena el formulario para reportarlo.
+                </p>
+              </div>
+              <form method="POST" action="/user/enviar_pqrs" id="pqrs-form" enctype="multipart/form-data">
+                <div class="card-body pb-2">
+
+                  <div class="form-group mt-2">
+                    <label for="tipo">Tipo de PQRS</label>
+                    <div class="btn-group w-100" role="group">
+                      <input type="radio" class="btn-check" name="tipo" id="peticion" value="petición" autocomplete="off" required>
+                      <label class="btn btn-outline-primary" for="peticion">Petición</label>
+
+                      <input type="radio" class="btn-check" name="tipo" id="queja" value="queja" autocomplete="off">
+                      <label class="btn btn-outline-primary" for="queja">Queja</label>
+
+                      <input type="radio" class="btn-check" name="tipo" id="reclamo" value="reclamo" autocomplete="off">
+                      <label class="btn btn-outline-primary" for="reclamo">Reclamo</label>
+
+                      <input type="radio" class="btn-check" name="tipo" id="sugerencia" value="sugerencia" autocomplete="off">
+                      <label class="btn btn-outline-primary" for="sugerencia">Sugerencia</label>
+                    </div>
+                  </div>
+
+                  <div class="form-group mt-4">
+                    <label for="descripcion">Descripción</label>
+                    <textarea name="descripcion" id="descripcion" class="form-control" rows="6" placeholder="Escribe tu solicitud o comentario..." required></textarea>
+                  </div>
+
+                  <div class="form-group mt-4">
+                    <label for="url_img">Imagen relacionada (opcional)</label>
+                    <input type="file" name="url_img" id="url_img" class="form-control" accept="image/*">
+                  </div>
+
+                  <div class="text-center mt-4">
+                    <button type="submit" class="btn btn-primary">Enviar PQRS</button>
+                  </div>
+
+                </div>
+              </form>
+
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+{% endblock content %}
+
+<!-- Specific JS goes HERE --> 
+{% block javascripts %}
+
+  <script src="/static/assets/js/soft-design-system.min.js?v=1.0.1" type="text/javascript"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const bounds = L.latLngBounds(
+      [4.5, -74.3],  // suroeste de Bogotá
+      [4.9, -73.9]   // noreste de Bogotá
+    );
+    const map = L.map('map', {
+      maxBounds: bounds,
+      maxBoundsViscosity: 10.0
+    }).setView([4.7110, -74.0721], 12);
+  
+    // Agrega capa de OpenStreetMap
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+  
+    let marker;
+  
+    function geocodeDireccion(direccion) {
+      const url = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=co&bounded=1&viewbox=-74.3,4.9,-73.9,4.5&q=${encodeURIComponent(direccion)}`;
+      fetch(url)
+        .then(res => res.json())
+        .then(data => {
+          if (data.length > 0) {
+            const { lat, lon } = data[0];
+            if (marker) {
+              map.removeLayer(marker);
+            }
+            marker = L.marker([lat, lon]).addTo(map);
+            map.setView([lat, lon], 15);
+          }
+        });
+    }
+  
+    document.getElementById('direccion').addEventListener('change', function () {
+      const direccion = this.value;
+      geocodeDireccion(direccion);
+    });
+    map.on('click', function (e) {
+  const lat = e.latlng.lat;
+  const lon = e.latlng.lng;
+
+  // Reverse geocoding
+  const reverseUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`;
+
+  fetch(reverseUrl)
+    .then(response => response.json())
+    .then(data => {
+      const displayName = data.display_name;
+      document.getElementById('direccion').value = displayName;
+
+      // Agrega o actualiza el marcador
+      if (marker) {
+        map.removeLayer(marker);
+      }
+      marker = L.marker([lat, lon]).addTo(map);
+    })
+    .catch(error => {
+      console.error("Error al obtener dirección inversa:", error);
+    });
+});
+
+  </script>
+<script>
+  document.getElementById('fotos').addEventListener('change', function (event) {
+    const files = event.target.files;
+    const previewContainer = document.getElementById('previewImages');
+    previewContainer.innerHTML = ''; // limpiar previews anteriores
+  
+    if (files.length > 10) {
+      alert("Solo puedes subir hasta 10 imágenes.");
+      event.target.value = ''; // limpiar input
+      return;
+    }
+  
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+  
+      if (file && (file.type === 'image/png' || file.type === 'image/jpeg')) {
+        const reader = new FileReader();
+        
+        reader.onload = function (e) {
+          const img = document.createElement('img');
+          img.src = e.target.result;
+          img.style.maxWidth = '150px';
+          img.style.maxHeight = '150px';
+          img.style.border = '1px solid #ccc';
+          img.style.borderRadius = '8px';
+          img.style.padding = '5px';
+          previewContainer.appendChild(img);
+        };
+        
+        reader.readAsDataURL(file);
+      }
+    }
+  });
+  </script>    
+  
+
+{% endblock javascripts %}

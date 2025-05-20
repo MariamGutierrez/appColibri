@@ -1,0 +1,88 @@
+{% extends 'layouts/base.html' %}
+
+{% block stylesheets %}
+<style>
+.chat-box {
+    max-height: 500px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    padding: 15px;
+    background-color: #f8f9fa;
+}
+.message {
+    margin-bottom: 15px;
+}
+.message.user {
+    text-align: left;
+}
+.message.employee {
+    text-align: right;
+}
+.message .bubble {
+    display: inline-block;
+    padding: 10px 15px;
+    border-radius: 15px;
+    max-width: 70%;
+}
+.bubble.user {
+    background-color: #e0e0e0;
+    color: #000;
+}
+.bubble.employee {
+    background-color: #007bff;
+    color: white;
+}
+.message .timestamp {
+    font-size: 0.8rem;
+    color: #999;
+    margin-top: 5px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <h3 class="mb-4 text-center">Chat para PQRS: {{ id_pqrs }}</h3>
+
+    <div class="chat-box mb-4" id="chat-box">
+        {% for mensaje in mensajes %}
+        <div class="message {{ 'user' if mensaje.emisor == 'cliente' else 'employee' }}">
+            <div class="bubble {{ 'user' if mensaje.emisor == 'cliente' else 'employee' }}">
+                {% if mensaje.mensaje %}
+                <p>{{ mensaje.mensaje }}</p>
+                {% endif %}
+
+                {% if mensaje.imagen_url %}
+                <img src="{{ url_for('static', filename='uploads/' ~ mensaje.imagen_url) }}" class="img-fluid rounded mt-2" style="max-width: 200px;">
+                {% endif %}
+            </div>
+            <div class="timestamp">
+                {{ mensaje.fecha.strftime("%d/%m/%Y %H:%M") }}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <form action="{{ url_for('enviar_mensaje', id_pqrs=id_pqrs) }}" method="POST" enctype="multipart/form-data">
+        <div class="mb-3">
+            <textarea name="mensaje" class="form-control" rows="3" placeholder="Escribe un mensaje..."></textarea>
+        </div>
+        <div class="mb-3">
+            <input type="file" name="imagen" class="form-control" accept="image/*">
+        </div>
+        <div class="text-end">
+            <button type="submit" class="btn btn-primary">Enviar</button>
+            <a href="{{ url_for('dashboard_pqrs') }}" class="btn btn-secondary">Volver</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+<script>
+    // Scroll al final del chat automáticamente
+    const chatBox = document.getElementById("chat-box");
+    chatBox.scrollTop = chatBox.scrollHeight;
+</script>
+{% endblock %}

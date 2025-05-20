@@ -5,6 +5,30 @@
     <h2 class="mb-4">Avistamientos Aprobados</h2>
 
     <div id="map" style="height: 400px; border-radius: 12px;"></div>
+<form method="get" class="mb-4">
+    <div class="row">
+        <div class="col-md-4">
+            <label for="tipo2">Tipo:</label>
+            <select class="form-control" id="tipo2" name="tipo2">
+                <option value="">Todos</option>
+                <option value="Flora">Flora</option>
+                <option value="Fauna">Fauna</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label for="id_tipo_especie">Estado de conservación:</label>
+            <select class="form-control" id="id_tipo_especie" name="id_tipo_especie">
+                <option value="">Todos</option>
+                <option value="1">En peligro</option>
+                <option value="2">Común</option>
+                <option value="3">Invasora</option>
+            </select>
+        </div>
+        <div class="col-md-4 align-self-end">
+            <button type="submit" class="btn btn-primary">Filtrar</button>
+        </div>
+    </div>
+</form>
 
     <hr class="my-4">
 

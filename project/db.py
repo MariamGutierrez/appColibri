@@ -1,9 +1,10 @@
 import os
+if os.environ.get("FLASK_ENV") != "production":
+    from dotenv import load_dotenv
+    load_dotenv()
+
 import psycopg2
 from flask import g
-from dotenv import load_dotenv
-
-load_dotenv(override=True)  # Carga .env desde el raíz del proyecto
 
 print("Valor desde .env:", repr(os.getenv("DATABASE_URL")))
 print("Fuente probable:", "Sistema" if os.getenv("DATABASE_URL").startswith("postgresql://dottoooo") else "Archivo .env")

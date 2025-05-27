@@ -20,7 +20,7 @@ from werkzeug.utils import secure_filename
 from flask import request, jsonify
 import uuid
 import psycopg2.extras
-from routes.noticias import noticias_bp
+from project.routes.noticias import noticias_bp
 import sys
 import os
 from werkzeug.security import generate_password_hash, check_password_hash

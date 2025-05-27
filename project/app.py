@@ -1,9 +1,5 @@
 from importlib.metadata import files
 from flask import Flask, jsonify, request, render_template, redirect, url_for, session, flash
-from db import get_db, close_db
-from werkzeug.security import generate_password_hash, check_password_hash
-from controllers.clientes import usuarios_bp
-from db import get_db
 import re
 from authentication import blueprint as authentication_blueprint
 import random
@@ -25,6 +21,13 @@ from flask import request, jsonify
 import uuid
 import psycopg2.extras
 from routes.noticias import noticias_bp
+import sys
+import os
+from werkzeug.security import generate_password_hash, check_password_hash
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from db import get_db, close_db
+
 
 load_dotenv()
 # Configurar Cloudinary

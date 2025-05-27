@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template
-from db import get_db
+from project.db import get_db
 import psycopg2
 
 noticias_bp = Blueprint('noticias', __name__)
